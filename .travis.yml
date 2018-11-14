@@ -4,8 +4,30 @@ rust:
 
 cache: cargo
 
+script:
+  - cargo test --verbose
+  - test -n "$TRAVIS_TAG" && cargo build --release
+
 matrix:
   include:
-    - os: osx
     - os: linux
+      after_success:
+        - test -n "$TRAVIS_TAG" && ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-linux-64bit.tar.gz hat )
+    - os: osx
+      after_success:
+        - test -n "$TRAVIS_TAG" && ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-macos-64bit.tar.gz hat )
     - os: windows
+      after_success:
+        - test -n "$TRAVIS_TAG" && 7z a -tzip hono-admin-tool-${TRAVIS_TAG}-windows-64bit.zip ./target/release/hat.exe
+
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key:
+    secure: "rHwFs/FiMYAbGH78THLPR+S+fhW9bmKq6Jbf+SJT429834oZ4ydWHWBiwBa7f44ub9lMt9rzmRvM5SZ2e7YZmXCuQthiLKMmcXIEqGVBfux1f4U5UC/mj2+En5z2ALEfssT2BiLvpbx2xacK68BINbBI0fGA8FDKjAj7hhIvWv9ghT2B3HInrQEWjausinuFLw5PtiBY4zy/73Zg78Ju5CEgNI26in9GNu3ia48/W8wrI5U3A82tutWjZAo89td5GrXJ1sRM5sp20BtKh9AywUm+Q9xFhNh815oGmQMilhUBPVuOyoYhrADdsSb2EyFEYq6EzKt6y7eCwRLJxfgcYrDgdWAyrKUXrrZk5DfLIQLqToeiitp17IPnqQBdiHrr35GTqbhy9HlECoax2P0uU5Wrhpn3iY1lgb9iUPDdrMrUaCRo8hbbO+/ZYtjMg8LO+t6np1Qh7oLWHSiZBB4uLAB59Lk6zt3rR6mfr1ZOUULY+HFJgASQUx63gMuW4l9zGRnh3dkLDEUgfqSgJXLipVYD+4Kwq01LR8eXnX4LtoaTYM5IsrtaK7vrOuaNLwFDzy9qExZXOQfVCWuyQeoSuXAFI4mFQDsJZL8drUnu/Vspoojuc/KQ/Z/OVSbl8+1sEN0xYYXw+F7ush292XCH6ODg2FTAst9GfDhSsTU1Sc4="
+  on:
+    repo: ctron/hat
+    tags: true
+  file_glob: true
+  file:
+    - hono-admin-tool-*
