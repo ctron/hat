@@ -92,9 +92,10 @@ fn app() -> App<'static,'static> {
         .help("Credentials payload in JSON format")
     ;
 
-    let app = App::new("hat")
+    let app = App::new("Hono Admin Tool")
         .version(crate_version!())
-        .author("Jens Reimann <jreimann@redhat.com")
+        .bin_name("hat")
+        .author("Jens Reimann <jreimann@redhat.com>")
         .about("Work with an Eclipse Hono instance")
 
         .subcommand(SubCommand::with_name("context")
