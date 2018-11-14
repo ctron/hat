@@ -275,7 +275,7 @@ fn app() -> App<'static,'static> {
 
                 .arg(Arg::with_name("device")
                     .help("Create credentials set for device if necessary")
-                    .long("create")
+                    .long("device")
                     .takes_value(true)
                     .max_values(1)
                 )
@@ -297,6 +297,13 @@ fn app() -> App<'static,'static> {
                 .arg(Arg::with_name("password")
                     .required(true)
                     .help("The plaintext password")
+                )
+
+                .arg(Arg::with_name("device")
+                    .help("Create credentials set for device if necessary")
+                    .long("device")
+                    .takes_value(true)
+                    .max_values(1)
                 )
 
             )
