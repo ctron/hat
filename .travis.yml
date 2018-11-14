@@ -1,3 +1,11 @@
 language: rust
 rust:
-   - 1.30.0
+  - 1.30.0
+
+cache: cargo
+
+matrix:
+  include:
+    - os: osx
+    - os: linux
+    - os: windows
