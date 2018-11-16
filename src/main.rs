@@ -29,9 +29,10 @@ extern crate dirs;
 extern crate reqwest;
 extern crate http;
 
-extern crate crypto;
 extern crate base64;
 extern crate rand;
+
+extern crate sha2;
 
 use std::result::Result;
 use clap::{Arg, App, SubCommand};

@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
-use crypto::digest::Digest;
-use crypto::sha2::{Sha256,Sha512};
+use sha2::Digest;
+use sha2::{Sha256, Sha512};
 
 pub enum HashFunction {
     Sha256,
@@ -22,7 +22,7 @@ pub enum HashFunction {
 impl std::str::FromStr for HashFunction {
     type Err = &'static str;
 
-    fn from_str(s:&str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "sha-256" => Ok(HashFunction::Sha256),
             "sha-512" => Ok(HashFunction::Sha512),
@@ -31,8 +31,15 @@ impl std::str::FromStr for HashFunction {
     }
 }
 
-impl HashFunction {
+fn do_hash<D: Digest + Default>(salt: &[u8], password: &str) -> String {
+    let mut md = D::default();
+    md.input(salt);
+    md.input(password);
+    let dig = md.result();
+    base64::encode(&dig)
+}
 
+impl HashFunction {
     pub fn name(&self) -> &str {
         match self {
             HashFunction::Sha256 => "sha-256",
@@ -40,22 +47,12 @@ impl HashFunction {
         }
     }
 
-    pub fn digest(&self) -> Box<Digest> {
+    pub fn hash(&self, salt: &[u8], password: &str) -> String {
+
         match self {
-            HashFunction::Sha256 => Box::new(Sha256::new()),
-            HashFunction::Sha512 => Box::new(Sha512::new()),
+            HashFunction::Sha256 => do_hash::<Sha256>(salt, password),
+            HashFunction::Sha512 => do_hash::<Sha512>(salt, password),
         }
-    }
 
-    pub fn hash(&self, salt: &[u8], password:&str) -> String {
-        let mut md = self.digest();
-
-        md.input(salt);
-        md.input_str(password);
-
-        let mut dig = vec![0; md.output_bytes()];
-        md.result(& mut dig);
-
-        base64::encode(&dig)
     }
 }
