@@ -1,6 +1,6 @@
 [package]
 name = "hat"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jens Reimann <jreimann@redhat.com>"]
 
 [[bin]]
