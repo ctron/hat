@@ -2,23 +2,29 @@ language: rust
 rust:
   - 1.30.0
 
-cache: cargo
-
 script:
   - cargo test --verbose
-  - test -n "$TRAVIS_TAG" && cargo build --release
+  - if test -n "$TRAVIS_TAG"; then cargo build --release; fi
 
 matrix:
   include:
     - os: linux
+      sudo: required
+      services:
+        - docker
+      before_install:
+        - docker pull centos:7
+      script:
+        - pwd
+        - docker run -v $PWD:/mnt --rm -t centos:7 bash -c "yum -y groupinstall 'Development Tools' && yum install -y libunwind-devel && curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain "$TRAVIS_RUST_VERSION" && source ~/.cargo/env && cd /mnt && cargo test --verbose && if test -n \"$TRAVIS_TAG\"; then cargo build --release; fi"
       after_success:
-        - test -n "$TRAVIS_TAG" && ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-linux-64bit.tar.gz hat )
+        - if test -n "$TRAVIS_TAG"; then ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-linux-64bit.tar.gz hat ); fi
     - os: osx
       after_success:
-        - test -n "$TRAVIS_TAG" && ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-macos-64bit.tar.gz hat )
+        - if test -n "$TRAVIS_TAG"; then ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-macos-64bit.tar.gz hat ); fi
     - os: windows
       after_success:
-        - test -n "$TRAVIS_TAG" && 7z a -tzip hono-admin-tool-${TRAVIS_TAG}-windows-64bit.zip ./target/release/hat.exe
+        - if test -n "$TRAVIS_TAG"; then 7z a -tzip hono-admin-tool-${TRAVIS_TAG}-windows-64bit.zip ./target/release/hat.exe; fi
 
 deploy:
   provider: releases
