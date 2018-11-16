@@ -22,6 +22,7 @@ url = "1.7.2"
 dirs = "1.0.4"
 
 reqwest = "0.9.4"
+hyper = "0.12"
 hyper-tls = { version="0.3", features = ["vendored"] }
 
 http = "0.1.10"

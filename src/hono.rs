@@ -31,8 +31,8 @@ pub enum ErrorKind {
     #[fail(display="Command Line Error: {:?}", _0)]
     CommandLine(::clap::ErrorKind),
 
-    #[fail(display="Request error")]
-    Request(),
+    #[fail(display="Request error: {}", _0)]
+    Request(String),
 
     #[fail(display="URL format error")]
     UrlError(),
@@ -108,13 +108,14 @@ impl From<ErrorKind> for Error {
 
 impl From<Context<ErrorKind>> for Error {
     fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner: inner }
+        Error { inner }
     }
 }
 
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Error {
-        err.context(ErrorKind::Request()).into()
+        let msg = format!("{}", err);
+        err.context(ErrorKind::Request(msg)).into()
     }
 }
 

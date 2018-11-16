@@ -14,6 +14,9 @@
 use std::result::Result;
 use std::fs::File;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use url::{Url};
 use url::percent_encoding::{utf8_percent_encode,percent_decode,DEFAULT_ENCODE_SET};
 
@@ -30,12 +33,20 @@ use hono::ErrorKind;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Context {
-    url: String
+    url: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 
 impl Context {
     pub fn to_url(&self) -> Result<url::Url,url::ParseError> {
-        return Url::parse(self.url.as_str());
+        Url::parse(self.url.as_str())
+    }
+    pub fn username(&self) -> Option<String> {
+        return self.username.clone();
+    }
+    pub fn password(&self) -> Option<String> {
+        return self.password.clone();
     }
 }
 
@@ -44,11 +55,15 @@ pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), hono::Error> {
     match matches.subcommand() {
         ( "create", Some(cmd_matches)) => context_create(
             cmd_matches.value_of("context").unwrap(),
-            cmd_matches.value_of("url").unwrap()
+            cmd_matches.value_of("url").unwrap(),
+            cmd_matches.value_of("username"),
+            cmd_matches.value_of("password")
         ),
         ( "update", Some(cmd_matches)) => context_update(
             cmd_matches.value_of("context").unwrap(),
-            cmd_matches.value_of("url").unwrap()
+            cmd_matches.value_of("url"),
+            cmd_matches.value_of("username"),
+            cmd_matches.value_of("password")
         ),
         ( "switch", Some(cmd_matches)) => context_switch(
             cmd_matches.value_of("context").unwrap()
@@ -108,7 +123,6 @@ fn context_load(context:&str) -> Result<Context, hono::Error> {
     Ok(serde_yaml::from_reader(file)?)
 }
 
-
 fn context_get_current() -> Result<Option<String>, hono::Error> {
 
     let path = context_config_dir().map(| path | path.join("current"))?;
@@ -135,12 +149,30 @@ pub fn context_load_current() -> Result<Context, hono::Error> {
         )
 }
 
+#[cfg(unix)]
+fn limit_access(file: & mut File) -> Result<(), hono::Error> {
+
+    let mut permissions = file.metadata()?.permissions();
+    permissions.set_mode(0o600);
+    file.set_permissions(permissions)?;
+
+    Ok(())
+
+}
+
+#[cfg(not(unix))]
+fn limit_access(file: & mut File) -> Result<(), hono::Error> {
+    Ok(())
+}
+
 fn context_store(context_name:&str, context:Context) -> Result<(), hono::Error> {
     let path = context_file_path(context_name)?;
 
     std::fs::create_dir_all(path.parent().unwrap())?;
 
     let mut file = File::create(path)?;
+
+    limit_access(& mut file)?;
 
     file.write_all(serde_yaml::to_string(&context)?.as_bytes())?;
 
@@ -152,26 +184,6 @@ fn context_validate_url(url:&str) -> Result<(), hono::Error> {
     return Ok(());
 }
 
-fn context_create(context:&str, url:&str) -> Result<(), hono::Error> {
-
-    if context_file_path(context)?.exists() {
-        return Err(ErrorKind::ContextExistsError {context: context.to_string()}.into());
-    }
-
-    context_validate_url(url)?;
-
-    let ctx = Context {
-        url: String::from(url)
-    };
-
-    context_store(context, ctx)?;
-    context_switch(context)?;
-
-    println!("Created new context: {}", context);
-
-    return Ok(());
-}
-
 fn context_switch(context:&str) -> Result<(), hono::Error> {
 
     context_load(context)?;
@@ -180,10 +192,34 @@ fn context_switch(context:&str) -> Result<(), hono::Error> {
 
     File::create(path)?.write_all(context.trim().as_bytes())?;
 
+    println!("Switched to context: {}", context);
+
     Ok(())
 }
 
-fn context_update(context:&str, url:&str) -> Result<(), hono::Error> {
+fn context_create(context:&str, url:&str, username:Option<&str>, password:Option<&str>) -> Result<(), hono::Error> {
+
+    if context_file_path(context)?.exists() {
+        return Err(ErrorKind::ContextExistsError {context: context.to_string()}.into());
+    }
+
+    context_validate_url(url)?;
+
+    let ctx = Context {
+        url: url.into(),
+        username: username.map(|u|u.into()),
+        password: password.map(|p|p.into()),
+    };
+
+    context_store(context, ctx)?;
+
+    println!("Created new context: {}", context);
+    context_switch(context)?;
+
+    return Ok(());
+}
+
+fn context_update(context:&str, url:Option<&str>, username:Option<&str>, password:Option<&str>) -> Result<(), hono::Error> {
 
     if !context_file_path(context)?.exists() {
         return Err(ErrorKind::ContextUnknownError {context: context.to_string()}.into());
@@ -191,13 +227,36 @@ fn context_update(context:&str, url:&str) -> Result<(), hono::Error> {
 
     let mut ctx = context_load(context)?;
 
-    context_validate_url(url)?;
+    if  url.is_some() {
+        context_validate_url(url.unwrap())?;
+        ctx.url = url.unwrap().into();
+        println!("Updated context '{}' URL to: {}", context, ctx.url);
+    }
 
-    ctx.url = url.to_string();
+    if username.is_some() {
+
+        let u = username.unwrap();
+        if u.is_empty() {
+            ctx.username = None;
+        } else {
+            ctx.username = Some(u.into());
+        }
+
+        println!("Updated context '{}' username to: {}", context, u);
+    }
+    if password.is_some() {
+
+        let p = password.unwrap();
+        if p.is_empty() {
+            ctx.password = None;
+        } else {
+            ctx.password = Some(p.into());
+        }
+
+        println!("Updated context '{}' password", context);
+    }
 
     context_store(context, ctx)?;
-
-    println!("Updated context '{}' to: {}", context, url);
 
     return Ok(());
 }
@@ -237,6 +296,7 @@ fn context_show() -> Result<(), hono::Error> {
 
     println!("Current context: {}", context.unwrap());
     println!("            URL: {}", ctx.url);
+    println!("       Username: {}", ctx.username.unwrap_or(String::from("<none>")));
 
     return Ok(());
 }

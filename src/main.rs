@@ -29,6 +29,8 @@ extern crate dirs;
 extern crate reqwest;
 extern crate http;
 
+extern crate hyper;
+
 extern crate base64;
 extern crate rand;
 
@@ -50,6 +52,8 @@ fn app() -> App<'static,'static> {
 
     let hash_functions = ["sha-256", "sha-512"];
 
+    // context
+
     let args_ctx = Arg::with_name("context")
         .help("Name of the context")
         .required(true)
@@ -57,6 +61,18 @@ fn app() -> App<'static,'static> {
     let args_ctx_url = Arg::with_name("url")
         .help("URL to the server")
         .required(true)
+    ;
+    let args_ctx_username = Arg::with_name("username")
+        .help("Username for accessing the device registry")
+        .long("username")
+        .short("u")
+        .takes_value(true)
+    ;
+    let args_ctx_password = Arg::with_name("password")
+        .help("Password for accessing the device registry")
+        .long("password")
+        .short("p")
+        .takes_value(true)
     ;
 
     // tenant
@@ -107,11 +123,19 @@ fn app() -> App<'static,'static> {
                 .about("Create a new context")
                 .arg(args_ctx.clone())
                 .arg(args_ctx_url.clone())
+                .arg(args_ctx_username.clone())
+                .arg(args_ctx_password.clone())
             )
             .subcommand(SubCommand::with_name("update")
                 .about("Update an existing context")
                 .arg(args_ctx.clone())
-                .arg(args_ctx_url.clone())
+                .arg(Arg::with_name("url")
+                    .long("url")
+                    .help("The new url to set")
+                    .takes_value(true)
+                )
+                .arg(args_ctx_username.clone())
+                .arg(args_ctx_password.clone())
             )
             .subcommand(SubCommand::with_name("delete")
                 .about("Delete a context")

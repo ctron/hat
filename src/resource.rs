@@ -41,12 +41,29 @@ pub fn resource_url(context: &Context, resource: &str, segments: &[&str]) -> Res
     return Ok(url);
 }
 
-pub fn resource_delete(url: &url::Url, resource_type: &str, resource_name: &str) -> Result<()> {
+trait AuthExt {
+    fn apply_auth ( self, context:&Context ) -> Self;
+}
+
+impl AuthExt for reqwest::RequestBuilder {
+    fn apply_auth ( self, context:&Context ) -> Self {
+        if context.username().is_some() && context.password().is_some() {
+            let username = context.username().unwrap();
+            let password = context.password();
+            self.basic_auth(username, password)
+        } else {
+            self
+        }
+    }
+}
+
+pub fn resource_delete(context:&Context, url: &url::Url, resource_type: &str, resource_name: &str) -> Result<()> {
 
     let client = reqwest::Client::new();
 
     client
         .request(Method::DELETE, url.clone())
+        .apply_auth(context)
         .send()
         .map_err(hono::Error::from)
         .and_then(|response|{
@@ -62,12 +79,13 @@ pub fn resource_delete(url: &url::Url, resource_type: &str, resource_name: &str)
     return Ok(());
 }
 
-pub fn resource_get(url: &url::Url, resource_type: &str) -> Result<()> {
+pub fn resource_get(context:&Context, url: &url::Url, resource_type: &str) -> Result<()> {
 
     let client = reqwest::Client::new();
 
     let result : serde_json::value::Value = client
         .request(Method::GET, url.clone())
+        .apply_auth(context)
         .send()
         .map_err(hono::Error::from)
         .and_then(|response|{

@@ -114,13 +114,13 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
 
 fn credentials_delete(context: &Context, tenant:&str, device:&str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, &[tenant, device])?;
-    resource_delete(&url, "Credentials", device)
+    resource_delete(&context, &url, "Credentials", device)
 }
 
 
 fn credentials_delete_for(context: &Context, tenant:&str, auth_id:&str, type_name:&str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
-    resource_delete(&url, "Credentials", &format!("{} / {}", auth_id, type_name))
+    resource_delete(&context, &url, "Credentials", &format!("{} / {}", auth_id, type_name))
 }
 
 fn credentials_create(context: &Context, tenant:&str, device:&str, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
@@ -194,12 +194,12 @@ fn credentials_update(context: &Context, tenant:&str, auth_id: &str, type_name: 
 
 fn credentials_get(context: &Context, tenant:&str, device:&str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, &[tenant, device])?;
-    resource_get(&url, "Credentials")
+    resource_get(&context, &url, "Credentials")
 }
 
 fn credentials_get_for(context: &Context, tenant:&str, auth_id:&str, type_name:&str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
-    resource_get(&url, "Credentials")
+    resource_get(&context, &url, "Credentials")
 }
 
 fn credentials_enable(context: &Context, tenant:&str, auth_id:&str, type_name:&str) -> Result<()> {

@@ -146,11 +146,11 @@ fn registration_update(context: &Context, tenant:&str, device:&str, payload:Opti
 
 fn registration_delete(context: &Context, tenant:&str, device:&str) -> Result<()> {
     let url = registration_url(context, tenant, Some(device))?;
-    resource_delete(&url, "Registration", device)
+    resource_delete(&context, &url, "Registration", device)
 
 }
 
 fn registration_get(context: &Context, tenant:&str, device:&str) -> Result<()> {
     let url = registration_url(context, tenant, Some(device))?;
-    resource_get(&url, "Registration")
+    resource_get(&context, &url, "Registration")
 }

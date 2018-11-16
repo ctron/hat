@@ -151,7 +151,7 @@ fn tenant_update(context: &Context, tenant:&str, payload:Option<&str>) -> Result
 
 fn tenant_delete(context: &Context, tenant:&str) -> Result<()> {
     let url = tenant_url(context, Some(tenant))?;
-    resource_delete(&url, "Tenant", tenant)
+    resource_delete(&context, &url, "Tenant", tenant)
 }
 
 fn tenant_enable(context: &Context, tenant:&str) -> Result<()> {
@@ -184,5 +184,5 @@ fn tenant_disable(context: &Context, tenant:&str) -> Result<()> {
 
 fn tenant_get(context: &Context, tenant:&str) -> Result<()> {
     let url = tenant_url(context, Some(tenant))?;
-    resource_get(&url, "Tenant")
+    resource_get(&context, &url, "Tenant")
 }
