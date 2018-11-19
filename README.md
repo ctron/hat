@@ -42,7 +42,7 @@ Or update later:
 
 It is possible to override the default tenant with `-t` or `--tenant`:
 
-   hat reg create -t my-tenant 4711 '{…}'
+    hat reg create -t my-tenant 4711 '{…}'
 
 ## Tenants
 
@@ -91,5 +91,3 @@ Set password as only password:
 
     hat cred set-password sensor1 sha-512 password
     hat cred set-password sensor1 sha-512 password --device 4711
-
-
