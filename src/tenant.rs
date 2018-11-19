@@ -26,7 +26,7 @@ use serde_json::value::*;
 use hono;
 use hono::ErrorKind::*;
 
-use resource::{resource_delete, resource_get, resource_modify};
+use resource::{resource_delete, resource_get, resource_modify, AuthExt};
 
 type Result<T> = std::result::Result<T, hono::Error>;
 
@@ -37,29 +37,29 @@ pub fn tenant(app: & mut App, matches: &ArgMatches, context: &Context) -> Result
     let result = match matches.subcommand() {
         ( "create", Some(cmd_matches)) => tenant_create(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant_name").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "update", Some(cmd_matches)) => tenant_update(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant_name").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "get", Some(cmd_matches)) => tenant_get(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant_name").unwrap(),
         )?,
         ( "delete", Some(cmd_matches)) => tenant_delete(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant_name").unwrap(),
         )?,
         ( "enable", Some(cmd_matches)) => tenant_enable(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant_name").unwrap(),
         )?,
         ( "disable", Some(cmd_matches)) => tenant_disable(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant_name").unwrap(),
         )?,
         _ => help(app)?
     };
@@ -98,6 +98,7 @@ fn tenant_create(context: &Context, tenant:&str, payload:Option<&str>) -> Result
 
     client
         .request(Method::POST, url)
+        .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
@@ -131,6 +132,7 @@ fn tenant_update(context: &Context, tenant:&str, payload:Option<&str>) -> Result
 
     client
         .request(Method::PUT, url)
+        .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
@@ -158,7 +160,7 @@ fn tenant_enable(context: &Context, tenant:&str) -> Result<()> {
 
     let url = tenant_url(context, Some(tenant))?;
 
-    resource_modify(&url, tenant, |payload| {
+    resource_modify(&context, &url, tenant, |payload| {
         payload.insert(KEY_ENABLED.into(), Value::Bool(true));
         Ok(())
     })?;
@@ -172,7 +174,7 @@ fn tenant_disable(context: &Context, tenant:&str) -> Result<()> {
 
     let url = tenant_url(context, Some(tenant))?;
 
-    resource_modify(&url, tenant, |payload| {
+    resource_modify(&context, &url, tenant, |payload| {
         payload.insert(KEY_ENABLED.into(), Value::Bool(false));
         Ok(())
     })?;

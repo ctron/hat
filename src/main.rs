@@ -15,6 +15,10 @@
 extern crate clap;
 
 #[macro_use]
+extern crate log;
+extern crate simplelog;
+
+#[macro_use]
 extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
@@ -37,7 +41,8 @@ extern crate rand;
 extern crate sha2;
 
 use std::result::Result;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App, SubCommand,AppSettings};
+use simplelog::{LevelFilter,TermLogger,Config};
 
 mod context;
 mod credentials;
@@ -74,11 +79,17 @@ fn app() -> App<'static,'static> {
         .short("p")
         .takes_value(true)
     ;
+    let args_ctx_tenant = Arg::with_name("tenant")
+        .help("Set the default tenant")
+        .short("t")
+        .long("tenant")
+        .takes_value(true)
+    ;
 
     // tenant
 
-    let args_tenant = Arg::with_name("tenant")
-        .help("Name of the tenant")
+    let args_tenant_name = Arg::with_name("tenant_name")
+        .help("Tenant name")
         .required(true)
     ;
     let args_tenant_payload = Arg::with_name("payload")
@@ -109,15 +120,36 @@ fn app() -> App<'static,'static> {
         .help("Credentials payload in JSON format")
     ;
 
+    // overrides
+
+    let args_tenant = Arg::with_name("tenant")
+        .help("Override the default tenant")
+        .global(true)
+        .short("t")
+        .long("tenant")
+        .takes_value(true)
+    ;
+
     let app = App::new("Hono Admin Tool")
         .version(crate_version!())
         .bin_name("hat")
         .author("Jens Reimann <jreimann@redhat.com>")
         .about("Work with an Eclipse Hono instance")
 
+        .setting(AppSettings::VersionlessSubcommands)
+
+        .arg(Arg::with_name("verbose")
+            .help("Be more verbose, repeat to increase verbosity")
+            .global(true)
+            .short("v")
+            .long("verbose")
+            .multiple(true)
+        )
+
         .subcommand(SubCommand::with_name("context")
 
             .about("Work with contexts")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
 
             .subcommand(SubCommand::with_name("create")
                 .about("Create a new context")
@@ -125,6 +157,7 @@ fn app() -> App<'static,'static> {
                 .arg(args_ctx_url.clone())
                 .arg(args_ctx_username.clone())
                 .arg(args_ctx_password.clone())
+                .arg(args_ctx_tenant.clone())
             )
             .subcommand(SubCommand::with_name("update")
                 .about("Update an existing context")
@@ -136,6 +169,7 @@ fn app() -> App<'static,'static> {
                 )
                 .arg(args_ctx_username.clone())
                 .arg(args_ctx_password.clone())
+                .arg(args_ctx_tenant.clone())
             )
             .subcommand(SubCommand::with_name("delete")
                 .about("Delete a context")
@@ -155,68 +189,69 @@ fn app() -> App<'static,'static> {
 
         .subcommand(SubCommand::with_name("tenant")
             .about("Work with tenants")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
 
             .subcommand(SubCommand::with_name("create")
                 .about("Create a new tenant")
-                .arg(args_tenant.clone())
+                .arg(args_tenant_name.clone())
                 .arg(args_tenant_payload.clone())
             )
 
-
             .subcommand(SubCommand::with_name("update")
                 .about("Update an existing tenant")
-                .arg(args_tenant.clone())
+                .arg(args_tenant_name.clone())
                 .arg(args_tenant_payload.clone())
             )
 
             .subcommand(SubCommand::with_name("get")
                 .about("Get tenant information")
-                .arg(args_tenant.clone())
+                .arg(args_tenant_name.clone())
             )
 
             .subcommand(SubCommand::with_name("delete")
                 .about("Delete an existing tenant")
-                .arg(args_tenant.clone())
+                .arg(args_tenant_name.clone())
             )
 
             .subcommand(SubCommand::with_name("enable")
                 .about("Enable an existing tenant")
-                .arg(args_tenant.clone())
+                .arg(args_tenant_name.clone())
             )
 
             .subcommand(SubCommand::with_name("disable")
                 .about("Disable an existing tenant")
-                .arg(args_tenant.clone())
+                .arg(args_tenant_name.clone())
             )
         )
 
         .subcommand(SubCommand::with_name("reg")
             .about("Work with registrations")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
 
             .subcommand(SubCommand::with_name("create")
                 .about("Register a new device")
-                .arg(args_tenant.clone())
                 .arg(args_device.clone())
                 .arg(args_device_payload.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("get")
                 .about("Get a device")
-                .arg(args_tenant.clone())
                 .arg(args_device.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("update")
                 .about("Update an existing device registration")
-                .arg(args_tenant.clone())
                 .arg(args_device.clone())
                 .arg(args_device_payload.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("delete")
                 .about("Delete a device")
-                .arg(args_tenant.clone())
                 .arg(args_device.clone())
+                .arg(args_tenant.clone())
             )
 
         )
@@ -224,68 +259,68 @@ fn app() -> App<'static,'static> {
         .subcommand(SubCommand::with_name("cred")
 
             .about("Work with device credentials")
+            .setting(AppSettings::SubcommandRequiredElseHelp)
 
             .subcommand(SubCommand::with_name("create")
                 .about("Create a new credentials set for an existing device")
-                .arg(args_tenant.clone())
                 .arg(args_device.clone())
                 .arg(args_credentials_auth_id.clone())
                 .arg(args_credentials_type.clone())
                 .arg(args_credentials_payload.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("update")
                 .about("Update an existing credentials set")
-                .arg(args_tenant.clone())
                 .arg(args_credentials_auth_id.clone())
                 .arg(args_credentials_type.clone())
                 .arg(args_credentials_payload.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("get")
                 .about("Get all credentials for an existing device")
-                .arg(args_tenant.clone())
                 .arg(args_device.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("get-for")
                 .about("Get all credentials by auth ID and type")
-                .arg(args_tenant.clone())
                 .arg(args_credentials_auth_id.clone())
                 .arg(args_credentials_type.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("delete")
                 .about("Delete all credentials for an existing device")
-                .arg(args_tenant.clone())
                 .arg(args_device.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("delete-for")
                 .about("Delete all credentials by auth ID and type")
-                .arg(args_tenant.clone())
                 .arg(args_credentials_auth_id.clone())
                 .arg(args_credentials_type.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("enable")
                 .about("Enable a set of credentials")
-                .arg(args_tenant.clone())
                 .arg(args_credentials_auth_id.clone())
                 .arg(args_credentials_type.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("disable")
                 .about("Disable a set of credentials")
-                .arg(args_tenant.clone())
                 .arg(args_credentials_auth_id.clone())
                 .arg(args_credentials_type.clone())
+                .arg(args_tenant.clone())
             )
 
             .subcommand(SubCommand::with_name("add-password")
                 .about("Add password secret for an existing credentials set")
 
-                .arg(args_tenant.clone())
                 .arg(args_credentials_auth_id.clone())
 
                 .arg(Arg::with_name("hash-function")
@@ -305,13 +340,14 @@ fn app() -> App<'static,'static> {
                     .takes_value(true)
                     .max_values(1)
                 )
+
+                .arg(args_tenant.clone())
 
             )
 
             .subcommand(SubCommand::with_name("set-password")
                 .about("Set password as the only secret to an existing credentials set")
 
-                .arg(args_tenant.clone())
                 .arg(args_credentials_auth_id.clone())
 
                 .arg(Arg::with_name("hash-function")
@@ -331,6 +367,8 @@ fn app() -> App<'static,'static> {
                     .takes_value(true)
                     .max_values(1)
                 )
+
+                .arg(args_tenant.clone())
 
             )
 
@@ -344,6 +382,16 @@ fn run() -> Result<(), failure::Error> {
 
     let mut app = app();
     let matches = app.clone().get_matches();
+
+    let level_filter = match matches.occurrences_of("verbose") {
+        0 => LevelFilter::Warn,
+        1 => LevelFilter::Info,
+        2 => LevelFilter::Debug,
+        _ => LevelFilter::Trace,
+    };
+
+    let cfg = Config::default();
+    TermLogger::init(level_filter,cfg).unwrap();
 
     let (cmd_name, cmd) = matches.subcommand();
 

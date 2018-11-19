@@ -24,33 +24,34 @@ use http::status::StatusCode;
 use hono;
 use hono::ErrorKind::*;
 
-use resource::{resource_delete, resource_get};
+use resource::{resource_delete, resource_get, resource_url, AuthExt};
 
 type Result<T> = std::result::Result<T, hono::Error>;
+static RESOURCE_NAME : &str = "registration";
 
 pub fn registration(app: & mut App, matches: &ArgMatches, context: &Context) -> Result<()> {
 
     let result = match matches.subcommand() {
         ( "create", Some(cmd_matches)) => registration_create(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "update", Some(cmd_matches)) => registration_update(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "get", Some(cmd_matches)) => registration_get(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap()
         )?,
         ( "delete", Some(cmd_matches)) => registration_delete(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap()
         )?,
         _ => help(app)?
@@ -59,27 +60,10 @@ pub fn registration(app: & mut App, matches: &ArgMatches, context: &Context) -> 
     Ok(result)
 }
 
+fn registration_create(context: &Context, tenant:Option<&str>, device:&str, payload:Option<&str>) -> Result<()> {
 
-fn registration_url(context: &Context, tenant: &str, device:Option<&str> ) -> Result<url::Url> {
-
-    let mut url = context.to_url()?;
-
-    {
-        let mut path = url.path_segments_mut().map_err(|_| hono::ErrorKind::UrlError())?;
-
-        path
-            .push("registration")
-            .push(tenant);
-
-        device.map(|d| path.push(d));
-    }
-
-    return Ok(url);
-}
-
-fn registration_create(context: &Context, tenant:&str, device:&str, payload:Option<&str>) -> Result<()> {
-
-    let url = registration_url(context, tenant, None)?;
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant])?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -92,6 +76,7 @@ fn registration_create(context: &Context, tenant:&str, device:&str, payload:Opti
 
     client
         .request(Method::POST, url)
+        .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
@@ -111,9 +96,10 @@ fn registration_create(context: &Context, tenant:&str, device:&str, payload:Opti
 }
 
 
-fn registration_update(context: &Context, tenant:&str, device:&str, payload:Option<&str>) -> Result<()> {
+fn registration_update(context: &Context, tenant:Option<&str>, device:&str, payload:Option<&str>) -> Result<()> {
 
-    let url = registration_url(context, tenant, Some(device))?;
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.to_string()])?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -126,6 +112,7 @@ fn registration_update(context: &Context, tenant:&str, device:&str, payload:Opti
 
     client
         .request(Method::PUT, url)
+        .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
@@ -144,13 +131,12 @@ fn registration_update(context: &Context, tenant:&str, device:&str, payload:Opti
     return Ok(());
 }
 
-fn registration_delete(context: &Context, tenant:&str, device:&str) -> Result<()> {
-    let url = registration_url(context, tenant, Some(device))?;
-    resource_delete(&context, &url, "Registration", device)
-
+fn registration_delete(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
+    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(tenant)?, &device.into()])?;
+    resource_delete(&context, &url, "Registration", &device)
 }
 
-fn registration_get(context: &Context, tenant:&str, device:&str) -> Result<()> {
-    let url = registration_url(context, tenant, Some(device))?;
+fn registration_get(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
+    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(tenant)?, &device.into()])?;
     resource_get(&context, &url, "Registration")
 }

@@ -26,7 +26,7 @@ use hono::ErrorKind::*;
 
 use hash::{HashFunction};
 
-use resource::{resource_delete, resource_get, resource_url, resource_modify};
+use resource::{resource_delete, resource_get, resource_url, resource_modify, AuthExt, Tracer};
 
 use serde_json::value::{Map,Value};
 
@@ -41,7 +41,7 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
     let result = match matches.subcommand() {
         ( "create", Some(cmd_matches)) => credentials_create(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap(),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap(),
@@ -49,48 +49,48 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
         )?,
         ( "update", Some(cmd_matches)) => credentials_update(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "get", Some(cmd_matches)) => credentials_get(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap()
         )?,
         ( "get-for", Some(cmd_matches)) => credentials_get_for(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "delete", Some(cmd_matches)) => credentials_delete(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap()
         )?,
         ( "delete-for", Some(cmd_matches)) => credentials_delete_for(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "enable", Some(cmd_matches)) => credentials_enable(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "disable", Some(cmd_matches)) => credentials_disable(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "add-password", Some(cmd_matches)) => credentials_add_password(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("password").unwrap(),
@@ -99,7 +99,7 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
         )?,
         ( "set-password", Some(cmd_matches)) => credentials_add_password(
             context,
-            cmd_matches.value_of("tenant").unwrap(),
+            cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("password").unwrap(),
@@ -112,20 +112,29 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
     Ok(result)
 }
 
-fn credentials_delete(context: &Context, tenant:&str, device:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, device])?;
+fn credentials_delete(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
+
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
+
     resource_delete(&context, &url, "Credentials", device)
+
 }
 
 
-fn credentials_delete_for(context: &Context, tenant:&str, auth_id:&str, type_name:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
+fn credentials_delete_for(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
+
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
+
     resource_delete(&context, &url, "Credentials", &format!("{} / {}", auth_id, type_name))
+
 }
 
-fn credentials_create(context: &Context, tenant:&str, device:&str, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
+fn credentials_create(context: &Context, tenant:Option<&str>, device:&str, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
 
-    let url = resource_url(context, RESOURCE_NAME, &[tenant])?;
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant])?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -140,8 +149,10 @@ fn credentials_create(context: &Context, tenant:&str, device:&str, auth_id: &str
 
     client
         .request(Method::POST, url)
+        .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
+        .trace()
         .send()
         .map_err(hono::Error::from)
         .and_then(|response|{
@@ -158,9 +169,10 @@ fn credentials_create(context: &Context, tenant:&str, device:&str, auth_id: &str
     return Ok(());
 }
 
-fn credentials_update(context: &Context, tenant:&str, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
+fn credentials_update(context: &Context, tenant:Option<&str>, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
 
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -173,9 +185,11 @@ fn credentials_update(context: &Context, tenant:&str, auth_id: &str, type_name: 
     let client = reqwest::Client::new();
 
     client
-        .request(Method::POST, url)
+        .request(Method::PUT, url)
+        .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
+        .trace()
         .send()
         .map_err(hono::Error::from)
         .and_then(|response|{
@@ -192,20 +206,30 @@ fn credentials_update(context: &Context, tenant:&str, auth_id: &str, type_name: 
     return Ok(());
 }
 
-fn credentials_get(context: &Context, tenant:&str, device:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, device])?;
+fn credentials_get(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
+
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
+
     resource_get(&context, &url, "Credentials")
+
 }
 
-fn credentials_get_for(context: &Context, tenant:&str, auth_id:&str, type_name:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
+fn credentials_get_for(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
+
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
+
     resource_get(&context, &url, "Credentials")
+
 }
 
-fn credentials_enable(context: &Context, tenant:&str, auth_id:&str, type_name:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
+fn credentials_enable(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
 
-    resource_modify(&url, &format!("{}/{}", auth_id, type_name), |payload| {
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
+
+    resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
         payload.insert("enabled".into(), true.into());
         Ok(())
     })?;
@@ -215,10 +239,12 @@ fn credentials_enable(context: &Context, tenant:&str, auth_id:&str, type_name:&s
     return Ok(());
 }
 
-fn credentials_disable(context: &Context, tenant:&str, auth_id:&str, type_name:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
+fn credentials_disable(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
 
-    resource_modify(&url, &format!("{}/{}", auth_id, type_name), |payload| {
+    let tenant = context.make_tenant(tenant)?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
+
+    resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
         payload.insert("enabled".into(), false.into());
         Ok(())
     })?;
@@ -253,13 +279,14 @@ fn new_entry(plain_password: &str, hash_function:&HashFunction) -> Value {
     return Value::Object(new_pair);
 }
 
-fn credentials_add_password(context: &Context, tenant:&str, device: Option<&str>, auth_id:&str, password:&str, hash_function:&HashFunction, clear: bool) -> Result<()> {
+fn credentials_add_password(context: &Context, tenant:Option<&str>, device: Option<&str>, auth_id:&str, password:&str, hash_function:&HashFunction, clear: bool) -> Result<()> {
 
+    let tenant = context.make_tenant(tenant)?;
     let type_name = "hashed-password";
 
-    let url = resource_url(context, RESOURCE_NAME, &[tenant, auth_id, type_name])?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
 
-    resource_modify(&url, &format!("{}/{}", auth_id, type_name), |payload| {
+    resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
 
         if !payload.contains_key("secrets") {
             payload.insert("secrets".into(), Value::Array(Vec::new()));
@@ -288,14 +315,23 @@ fn credentials_add_password(context: &Context, tenant:&str, device: Option<&str>
             return Err(err);
         }
 
-        let mut payload = Map::new();
+        match err.kind() {
+            NotFound(_) => {
 
-        let entry = new_entry(password, hash_function);
-        payload.insert("secrets".into(), Value::Array([entry].to_vec()));
+                println!("No credential set found, creating new one.");
 
-        let payload = serde_json::to_string(&payload)?;
+                let mut payload = Map::new();
 
-        credentials_create(context, tenant, device.unwrap(), auth_id, type_name, Some(&payload))
+                let entry = new_entry(password, hash_function);
+                payload.insert("secrets".into(), Value::Array([entry].to_vec()));
+
+                let payload = serde_json::to_string(&payload)?;
+
+                credentials_create(context, Some(tenant.as_str()), device.unwrap(), auth_id, type_name, Some(&payload))
+
+            },
+            _ => Err(err)
+        }
     })?;
 
     if clear {

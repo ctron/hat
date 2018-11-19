@@ -10,9 +10,14 @@ Create a new context:
 
     hat context create foo https://device-registry.hono.my
 
+Create a new context with credentials:
+
+    hat context create foo https://device-registry.hono.my --username <username> --password <password>
+
 Update an existing context:
 
     hat context update foo https://device-registry.hono.my
+    hat context update foo https://device-registry.hono.my --username <username> --password <password>
 
 Delete an existing context:
 
@@ -21,6 +26,23 @@ Delete an existing context:
 Switch to an existing context:
 
     hat context switch foo
+
+### Default tenant
+
+It is possible to set a *default tenant*, which is used on all calls when using
+this context.
+
+Set a default tenant when creating a context:
+
+    hat context create foo https://device-registry.hono.my --tenant <tenant>
+
+Or update later:
+
+    hat context update foo https://device-registry.hono.my --tenant <tenant>
+
+It is possible to override the default tenant with `-t` or `--tenant`:
+
+   hat reg create -t my-tenant 4711 '{…}'
 
 ## Tenants
 
@@ -49,25 +71,25 @@ Enable/Disable a tenant:
 
 Register a new device:
 
-    hat reg my-tenant 4711
+    hat reg create 4711
 
 Register a new device with payload:
 
-    hat reg my-tenant 4711 '{…}'
+    hat reg create 4711 '{…}'
 
 ## Credentials
 
 Add a password:
 
-    hat cred add-password my-tenant sensor1 sha-512 password
+    hat cred add-password sensor1 sha-512 password
 
 Add a password, creating a new credentials set if necessary:
 
-    hat cred add-password my-tenant sensor1 sha-512 password --device 4711
+    hat cred add-password sensor1 sha-512 password --device 4711
 
 Set password as only password:
 
-    hat cred set-password my-tenant sensor1 sha-512 password
-    hat cred set-password my-tenant sensor1 sha-512 password --device 4711
+    hat cred set-password sensor1 sha-512 password
+    hat cred set-password sensor1 sha-512 password --device 4711
 
 

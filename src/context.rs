@@ -34,8 +34,9 @@ use hono::ErrorKind;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Context {
     url: String,
-    pub username: Option<String>,
-    pub password: Option<String>,
+    username: Option<String>,
+    password: Option<String>,
+    default_tenant: Option<String>,
 }
 
 impl Context {
@@ -48,6 +49,16 @@ impl Context {
     pub fn password(&self) -> Option<String> {
         return self.password.clone();
     }
+    #[allow(dead_code)]
+    pub fn default_tenant(&self) -> Option<String> {
+        return self.default_tenant.clone();
+    }
+    pub fn make_tenant<T:Sized+ToString>(&self,tenant:Option<T>) -> Result<String,hono::Error> {
+        return tenant
+            .map(|s|s.to_string())
+            .or(self.default_tenant.clone())
+            .ok_or(hono::Error::from(ErrorKind::GenericError("No tenant specified. Either set a default tenant for the context or use the argument --tenant to provide one.".into())));
+    }
 }
 
 pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), hono::Error> {
@@ -57,13 +68,15 @@ pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), hono::Error> {
             cmd_matches.value_of("context").unwrap(),
             cmd_matches.value_of("url").unwrap(),
             cmd_matches.value_of("username"),
-            cmd_matches.value_of("password")
+            cmd_matches.value_of("password"),
+            cmd_matches.value_of("tenant")
         ),
         ( "update", Some(cmd_matches)) => context_update(
             cmd_matches.value_of("context").unwrap(),
             cmd_matches.value_of("url"),
             cmd_matches.value_of("username"),
-            cmd_matches.value_of("password")
+            cmd_matches.value_of("password"),
+            cmd_matches.value_of("tenant")
         ),
         ( "switch", Some(cmd_matches)) => context_switch(
             cmd_matches.value_of("context").unwrap()
@@ -79,8 +92,7 @@ pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), hono::Error> {
 }
 
 fn context_encode_file_name(context:&str) -> String {
-    let iter = utf8_percent_encode(context,DEFAULT_ENCODE_SET);
-    return iter.collect();
+    utf8_percent_encode(context,DEFAULT_ENCODE_SET).collect()
 }
 
 fn context_decode_file_name(name:&str) -> Result<String,Utf8Error> {
@@ -197,7 +209,7 @@ fn context_switch(context:&str) -> Result<(), hono::Error> {
     Ok(())
 }
 
-fn context_create(context:&str, url:&str, username:Option<&str>, password:Option<&str>) -> Result<(), hono::Error> {
+fn context_create(context:&str, url:&str, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>) -> Result<(), hono::Error> {
 
     if context_file_path(context)?.exists() {
         return Err(ErrorKind::ContextExistsError {context: context.to_string()}.into());
@@ -209,6 +221,7 @@ fn context_create(context:&str, url:&str, username:Option<&str>, password:Option
         url: url.into(),
         username: username.map(|u|u.into()),
         password: password.map(|p|p.into()),
+        default_tenant: default_tenant.map(|t|t.into()),
     };
 
     context_store(context, ctx)?;
@@ -219,7 +232,7 @@ fn context_create(context:&str, url:&str, username:Option<&str>, password:Option
     return Ok(());
 }
 
-fn context_update(context:&str, url:Option<&str>, username:Option<&str>, password:Option<&str>) -> Result<(), hono::Error> {
+fn context_update(context:&str, url:Option<&str>, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>) -> Result<(), hono::Error> {
 
     if !context_file_path(context)?.exists() {
         return Err(ErrorKind::ContextUnknownError {context: context.to_string()}.into());
@@ -242,8 +255,9 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
             ctx.username = Some(u.into());
         }
 
-        println!("Updated context '{}' username to: {}", context, u);
+        println!("Updated context '{}' set username to: {}", context, u);
     }
+
     if password.is_some() {
 
         let p = password.unwrap();
@@ -253,7 +267,19 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
             ctx.password = Some(p.into());
         }
 
-        println!("Updated context '{}' password", context);
+        println!("Updated context '{}' set password", context);
+    }
+
+    if default_tenant.is_some() {
+
+        let t = default_tenant.unwrap();
+        if t.is_empty() {
+            ctx.default_tenant = None;
+        } else {
+            ctx.default_tenant = Some(t.into());
+        }
+
+        println!("Updated context '{}' set default tenant to: {}", context, t);
     }
 
     context_store(context, ctx)?;
@@ -297,6 +323,7 @@ fn context_show() -> Result<(), hono::Error> {
     println!("Current context: {}", context.unwrap());
     println!("            URL: {}", ctx.url);
     println!("       Username: {}", ctx.username.unwrap_or(String::from("<none>")));
+    println!("       Password: {}", ctx.password.and(Some("***")).unwrap_or("<none>"));
 
     return Ok(());
 }

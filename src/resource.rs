@@ -26,7 +26,37 @@ use serde_json::{Map,Value};
 
 type Result<T> = std::result::Result<T, hono::Error>;
 
-pub fn resource_url(context: &Context, resource: &str, segments: &[&str]) -> Result<url::Url> {
+pub trait AuthExt {
+    fn apply_auth ( self, context:&Context ) -> Self;
+}
+
+impl AuthExt for reqwest::RequestBuilder {
+    fn apply_auth ( self, context:&Context ) -> Self {
+
+        if context.username().is_some() && context.password().is_some() {
+
+            self.basic_auth(context.username().unwrap(), context.password())
+
+        } else {
+
+            self
+
+        }
+    }
+}
+
+pub trait Tracer {
+    fn trace(self) -> Self;
+}
+
+impl Tracer for reqwest::RequestBuilder {
+    fn trace ( self, ) -> Self {
+        info!("{:#?}", self);
+        self
+    }
+}
+
+pub fn resource_url<S:ToString+Sized>(context: &Context, resource: &str, segments: &[&S]) -> Result<url::Url> {
     let mut url = context.to_url()?;
 
     {
@@ -34,27 +64,11 @@ pub fn resource_url(context: &Context, resource: &str, segments: &[&str]) -> Res
         path.push(resource);
 
         for seg in segments {
-            path.push(seg);
+            path.push(seg.to_string().as_str());
         }
     }
 
     return Ok(url);
-}
-
-trait AuthExt {
-    fn apply_auth ( self, context:&Context ) -> Self;
-}
-
-impl AuthExt for reqwest::RequestBuilder {
-    fn apply_auth ( self, context:&Context ) -> Self {
-        if context.username().is_some() && context.password().is_some() {
-            let username = context.username().unwrap();
-            let password = context.password();
-            self.basic_auth(username, password)
-        } else {
-            self
-        }
-    }
 }
 
 pub fn resource_delete(context:&Context, url: &url::Url, resource_type: &str, resource_name: &str) -> Result<()> {
@@ -83,9 +97,10 @@ pub fn resource_get(context:&Context, url: &url::Url, resource_type: &str) -> Re
 
     let client = reqwest::Client::new();
 
-    let result : serde_json::value::Value = client
+    let result :serde_json::value::Value = client
         .request(Method::GET, url.clone())
         .apply_auth(context)
+        .trace()
         .send()
         .map_err(hono::Error::from)
         .and_then(|response|{
@@ -103,7 +118,7 @@ pub fn resource_get(context:&Context, url: &url::Url, resource_type: &str) -> Re
 
 }
 
-pub fn resource_modify_with_create<C, F>(url:&url::Url, resource_name: &str, creator: C, modifier : F) -> Result<reqwest::Response>
+pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resource_name: &str, creator: C, modifier : F) -> Result<reqwest::Response>
     where
         F: Fn(& mut Map<String,Value>) -> Result<()>,
         C: Fn() -> Result<Map<String,Value>>
@@ -115,6 +130,8 @@ pub fn resource_modify_with_create<C, F>(url:&url::Url, resource_name: &str, cre
 
     let mut payload : Map<String,Value> = client
         .request(Method::GET, url.clone())
+        .apply_auth(context)
+        .trace()
         .send()
         .map_err(hono::Error::from)
         .and_then(|mut response|{
@@ -135,6 +152,7 @@ pub fn resource_modify_with_create<C, F>(url:&url::Url, resource_name: &str, cre
         .request(Method::PUT, url.clone())
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
+        .trace()
         .send()
         .map_err(hono::Error::from)
         .and_then(|response|{
@@ -147,8 +165,8 @@ pub fn resource_modify_with_create<C, F>(url:&url::Url, resource_name: &str, cre
         })
 }
 
-pub fn resource_modify<F>(url:&url::Url, resource_name: &str, modifier : F) -> Result<reqwest::Response>
+pub fn resource_modify<F>(context:&Context, url:&url::Url, resource_name: &str, modifier : F) -> Result<reqwest::Response>
     where F: Fn(& mut Map<String,Value>) -> Result<()>  {
 
-    resource_modify_with_create(url, resource_name, || Err(NotFound(resource_name.into()).into()), modifier)
+    resource_modify_with_create(context, url, resource_name, || Err(NotFound(resource_name.into()).into()), modifier)
 }
