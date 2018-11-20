@@ -150,6 +150,7 @@ pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resour
 
     client
         .request(Method::PUT, url.clone())
+        .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .trace()

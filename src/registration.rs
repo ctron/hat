@@ -24,7 +24,9 @@ use http::status::StatusCode;
 use error;
 use error::ErrorKind::*;
 
-use resource::{resource_delete, resource_get, resource_url, AuthExt};
+use utils::Either;
+
+use resource::{resource_delete, resource_get, resource_url, AuthExt, resource_modify};
 
 type Result<T> = std::result::Result<T, error::Error>;
 static RESOURCE_NAME : &str = "registration";
@@ -53,6 +55,18 @@ pub fn registration(app: & mut App, matches: &ArgMatches, context: &Context) -> 
             context,
             cmd_matches.value_of("tenant"),
             cmd_matches.value_of("device").unwrap()
+        )?,
+        ( "enable", Some(cmd_matches)) => registration_enable(
+            context,
+            cmd_matches.value_of("tenant"),
+            cmd_matches.value_of("device").unwrap(),
+            true
+        )?,
+        ( "disable", Some(cmd_matches)) => registration_enable(
+            context,
+            cmd_matches.value_of("tenant"),
+            cmd_matches.value_of("device").unwrap(),
+            false
         )?,
         _ => help(app)?
     };
@@ -90,7 +104,7 @@ fn registration_create(context: &Context, tenant:Option<&str>, device:&str, payl
             }
         })?;
 
-    println!("Registered device: {}", tenant);
+    println!("Registered device {} for tenant {}", device, tenant);
 
     return Ok(());
 }
@@ -126,7 +140,7 @@ fn registration_update(context: &Context, tenant:Option<&str>, device:&str, payl
             }
         })?;
 
-    println!("Updated device registration: {}", tenant);
+    println!("Updated device registration {} for tenant {}", device, tenant);
 
     return Ok(());
 }
@@ -139,4 +153,19 @@ fn registration_delete(context: &Context, tenant:Option<&str>, device:&str) -> R
 fn registration_get(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(tenant)?, &device.into()])?;
     resource_get(&context, &url, "Registration")
+}
+
+fn registration_enable(context: &Context, tenant:Option<&str>, device:&str, status:bool) -> Result<()> {
+    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(tenant)?, &device.into()])?;
+
+    resource_modify(&context, &url, "Registration", |reg| {
+
+        reg.insert("enabled".into(), serde_json::value::Value::Bool(status));
+        Ok(())
+
+    })?;
+
+    println!("Registration for device {} {}", device, status.either("enabled", "disabled") );
+
+    Ok(())
 }

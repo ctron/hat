@@ -77,6 +77,14 @@ Register a new device with payload:
 
     hat reg create 4711 '{…}'
 
+Enable a device:
+
+    hat reg enable 4711
+
+Disable a device:
+
+    hat reg disable 4711
+
 ## Credentials
 
 Add a password:

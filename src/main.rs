@@ -41,7 +41,7 @@ extern crate rand;
 extern crate sha2;
 
 use std::result::Result;
-use clap::{Arg, App, SubCommand,AppSettings};
+use clap::{Arg, App, SubCommand, AppSettings};
 use simplelog::{LevelFilter,TermLogger,Config};
 
 mod context;
@@ -52,6 +52,7 @@ mod error;
 mod tenant;
 mod registration;
 mod resource;
+mod utils;
 
 fn app() -> App<'static,'static> {
 
@@ -81,8 +82,7 @@ fn app() -> App<'static,'static> {
     ;
     let args_ctx_default_tenant = Arg::with_name("default_tenant")
         .help("Set the default tenant")
-        .short("t")
-        .long("tenant")
+        .long("default-tenant")
         .takes_value(true)
     ;
 
@@ -145,6 +145,7 @@ fn app() -> App<'static,'static> {
             .long("verbose")
             .multiple(true)
         )
+        .arg(args_tenant.clone())
 
         .subcommand(SubCommand::with_name("context")
 
@@ -228,7 +229,7 @@ fn app() -> App<'static,'static> {
             .about("Work with registrations")
             .setting(AppSettings::SubcommandRequiredElseHelp)
 
-            .arg(args_tenant.clone())
+            // .arg(args_tenant.clone())
 
             .subcommand(SubCommand::with_name("create")
                 .about("Register a new device")
@@ -248,9 +249,19 @@ fn app() -> App<'static,'static> {
             )
 
             .subcommand(SubCommand::with_name("delete")
-                .about("Delete a device")
+                .about("Delete a device registration")
                 .arg(args_device.clone())
-           )
+            )
+
+            .subcommand(SubCommand::with_name("enable")
+                .about("Enable a device registration")
+                .arg(args_device.clone())
+            )
+
+            .subcommand(SubCommand::with_name("disable")
+                .about("Disable a device registration")
+                .arg(args_device.clone())
+            )
 
         )
 
@@ -259,7 +270,7 @@ fn app() -> App<'static,'static> {
             .about("Work with device credentials")
             .setting(AppSettings::SubcommandRequiredElseHelp)
 
-            .arg(args_tenant.clone())
+            // .arg(args_tenant.clone())
 
             .subcommand(SubCommand::with_name("create")
                 .about("Create a new credentials set for an existing device")
