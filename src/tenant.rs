@@ -23,12 +23,12 @@ use http::status::StatusCode;
 
 use serde_json::value::*;
 
-use hono;
-use hono::ErrorKind::*;
+use error;
+use error::ErrorKind::*;
 
 use resource::{resource_delete, resource_get, resource_modify, AuthExt};
 
-type Result<T> = std::result::Result<T, hono::Error>;
+type Result<T> = std::result::Result<T, error::Error>;
 
 static KEY_ENABLED : &'static str = "enabled";
 
@@ -72,7 +72,7 @@ fn tenant_url(context: &Context, tenant:Option<&str> ) -> Result<url::Url> {
     let mut url = context.to_url()?;
 
     {
-        let mut path = url.path_segments_mut().map_err(|_| hono::ErrorKind::UrlError())?;
+        let mut path = url.path_segments_mut().map_err(|_| error::ErrorKind::UrlError())?;
 
         path
             .push("tenant");
@@ -102,7 +102,7 @@ fn tenant_create(context: &Context, tenant:&str, payload:Option<&str>) -> Result
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::CREATED => Ok(response),
@@ -136,7 +136,7 @@ fn tenant_update(context: &Context, tenant:&str, payload:Option<&str>) -> Result
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),

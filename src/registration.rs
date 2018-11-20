@@ -21,12 +21,12 @@ use http::method::Method;
 use http::header::CONTENT_TYPE;
 use http::status::StatusCode;
 
-use hono;
-use hono::ErrorKind::*;
+use error;
+use error::ErrorKind::*;
 
 use resource::{resource_delete, resource_get, resource_url, AuthExt};
 
-type Result<T> = std::result::Result<T, hono::Error>;
+type Result<T> = std::result::Result<T, error::Error>;
 static RESOURCE_NAME : &str = "registration";
 
 pub fn registration(app: & mut App, matches: &ArgMatches, context: &Context) -> Result<()> {
@@ -80,7 +80,7 @@ fn registration_create(context: &Context, tenant:Option<&str>, device:&str, payl
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::CREATED => Ok(response),
@@ -116,7 +116,7 @@ fn registration_update(context: &Context, tenant:Option<&str>, device:&str, payl
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),

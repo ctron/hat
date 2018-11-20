@@ -17,14 +17,14 @@ use http::Method;
 use http::StatusCode;
 use http::header::CONTENT_TYPE;
 
-use hono::{self};
-use hono::ErrorKind::{UnexpectedResult,NotFound,MalformedRequest};
+use error::{self};
+use error::ErrorKind::{UnexpectedResult, NotFound, MalformedRequest};
 
 use context::Context;
 
 use serde_json::{Map,Value};
 
-type Result<T> = std::result::Result<T, hono::Error>;
+type Result<T> = std::result::Result<T, error::Error>;
 
 pub trait AuthExt {
     fn apply_auth ( self, context:&Context ) -> Self;
@@ -60,7 +60,7 @@ pub fn resource_url<S:ToString+Sized>(context: &Context, resource: &str, segment
     let mut url = context.to_url()?;
 
     {
-        let mut path = url.path_segments_mut().map_err(|_| hono::ErrorKind::UrlError())?;
+        let mut path = url.path_segments_mut().map_err(|_| error::ErrorKind::UrlError())?;
         path.push(resource);
 
         for seg in segments {
@@ -79,7 +79,7 @@ pub fn resource_delete(context:&Context, url: &url::Url, resource_type: &str, re
         .request(Method::DELETE, url.clone())
         .apply_auth(context)
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),
@@ -102,7 +102,7 @@ pub fn resource_get(context:&Context, url: &url::Url, resource_type: &str) -> Re
         .apply_auth(context)
         .trace()
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::OK => Ok(response),
@@ -133,10 +133,10 @@ pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resour
         .apply_auth(context)
         .trace()
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|mut response|{
             match response.status() {
-                StatusCode::OK => response.json().map_err(hono::Error::from),
+                StatusCode::OK => response.json().map_err(error::Error::from),
                 StatusCode::NOT_FOUND => creator(),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
@@ -154,7 +154,7 @@ pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resour
         .json(&payload)
         .trace()
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),

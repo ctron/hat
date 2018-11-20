@@ -12,9 +12,9 @@
  *******************************************************************************/
 
 use clap::App;
-use hono;
+use error;
 
-pub fn help(app:& mut App) -> Result<(), hono::Error> {
+pub fn help(app:& mut App) -> Result<(), error::Error> {
     app.print_help()?;
     println!();
     Ok(())

@@ -21,8 +21,8 @@ use http::method::Method;
 use http::header::*;
 use http::status::StatusCode;
 
-use hono;
-use hono::ErrorKind::*;
+use error;
+use error::ErrorKind::*;
 
 use hash::{HashFunction};
 
@@ -32,7 +32,7 @@ use serde_json::value::{Map,Value};
 
 use rand::{RngCore,EntropyRng};
 
-type Result<T> = std::result::Result<T, hono::Error>;
+type Result<T> = std::result::Result<T, error::Error>;
 
 static RESOURCE_NAME : &str = "credentials";
 
@@ -154,7 +154,7 @@ fn credentials_create(context: &Context, tenant:Option<&str>, device:&str, auth_
         .json(&payload)
         .trace()
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::CREATED => Ok(response),
@@ -191,7 +191,7 @@ fn credentials_update(context: &Context, tenant:Option<&str>, auth_id: &str, typ
         .json(&payload)
         .trace()
         .send()
-        .map_err(hono::Error::from)
+        .map_err(error::Error::from)
         .and_then(|response|{
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),
