@@ -1,6 +1,6 @@
 [package]
 name = "hat"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["Jens Reimann <jreimann@redhat.com>"]
 
 [[bin]]
@@ -9,29 +9,29 @@ path = "src/main.rs"
 
 [dependencies]
 clap = "2.32"
-log = "^0.4"
-simplelog = "^0.5.0"
+log = "0.4"
+simplelog = "0.5"
 
-serde = "1.0.80"
-serde_derive = "1.0.80"
-serde_yaml = "0.8.7"
-serde_json = "1.0.33"
+serde = "1.0"
+serde_derive = "1.0"
+serde_yaml = "0.8"
+serde_json = "1.0"
 
-failure_derive = "0.1.3"
-failure = "0.1.3"
+failure_derive = "0.1"
+failure = "0.1"
 
-url = "1.7.2"
+url = "1.7"
 
-dirs = "1.0.4"
+dirs = "1.0"
 
-reqwest = "0.9.4"
+reqwest = "0.9"
 hyper = "0.12"
 hyper-tls = { version="0.3", features = ["vendored"] }
 
-http = "0.1.10"
+http = "0.1"
 
-base64 = "0.10.0"
+base64 = "0.10"
 
-rand = "0.5.5"
+rand = "0.5"
 
-sha2 = "0.8.0"
+sha2 = "0.8"
