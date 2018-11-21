@@ -1,4 +1,4 @@
-# HAT – Hono Admin Tool
+# HAT – Hono Admin Tool [![GitHub release](https://img.shields.io/github/release/ctron/hat.svg)](https://github.com/ctron/hat/releases)
 
 Getting help:
 
