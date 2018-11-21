@@ -120,7 +120,7 @@ fn context_file_path(context:&str) -> Result<PathBuf, error::Error> {
     let name = context.trim();
 
     if name.is_empty() {
-        return Err(ErrorKind::ContextNameError {context: context.to_string()}.into());
+        return Err(ErrorKind::ContextNameError(context.to_string()).into());
     }
 
     return context_contexts_dir()
@@ -130,9 +130,17 @@ fn context_file_path(context:&str) -> Result<PathBuf, error::Error> {
 }
 
 fn context_load(context:&str) -> Result<Context, error::Error> {
-    let file = File::open(context_file_path(context)?)?;
+    let file = File::open(context_file_path(context)?);
 
-    Ok(serde_yaml::from_reader(file)?)
+    match file {
+        Ok(file) => Ok(serde_yaml::from_reader(file)?),
+        Err(err) => {
+            match err.kind() {
+                std::io::ErrorKind::NotFound => Err(ErrorKind::ContextUnknownError(context.into()).into()),
+                _ => Err(err.into())
+            }
+        }
+    }
 }
 
 fn context_get_current() -> Result<Option<String>, error::Error> {
@@ -212,7 +220,7 @@ fn context_switch(context:&str) -> Result<(), error::Error> {
 fn context_create(context:&str, url:&str, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>) -> Result<(), error::Error> {
 
     if context_file_path(context)?.exists() {
-        return Err(ErrorKind::ContextExistsError {context: context.to_string()}.into());
+        return Err(ErrorKind::ContextExistsError(context.to_string()).into());
     }
 
     context_validate_url(url)?;
@@ -233,10 +241,6 @@ fn context_create(context:&str, url:&str, username:Option<&str>, password:Option
 }
 
 fn context_update(context:&str, url:Option<&str>, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>) -> Result<(), error::Error> {
-
-    if !context_file_path(context)?.exists() {
-        return Err(ErrorKind::ContextUnknownError {context: context.to_string()}.into());
-    }
 
     let mut ctx = context_load(context)?;
 

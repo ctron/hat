@@ -48,18 +48,12 @@ pub enum ErrorKind {
 
     // context errors
 
-    #[fail(display="Context '{}' already exists", context)]
-    ContextExistsError {
-        context: String,
-    },
-    #[fail(display="Unknown context '{}'", context)]
-    ContextUnknownError {
-        context: String,
-    },
-    #[fail(display="Invalid context name: {}", context)]
-    ContextNameError {
-        context: String,
-    },
+    #[fail(display="Context '{}' already exists", _0)]
+    ContextExistsError(String),
+    #[fail(display="Unknown context '{}'", _0)]
+    ContextUnknownError(String),
+    #[fail(display="Invalid context name: {}", _0)]
+    ContextNameError(String),
 
     // remote errors
 
