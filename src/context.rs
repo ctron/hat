@@ -337,7 +337,7 @@ fn context_list() -> Result<(), error::Error> {
     let path = context_contexts_dir()?;
 
     if !path.exists() {
-        eprintln!("No known contexts");
+        println!("No known contexts");
         return Ok(());
     }
 
