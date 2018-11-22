@@ -43,15 +43,17 @@ extern crate sha2;
 use std::result::Result;
 use clap::{Arg, App, SubCommand, AppSettings};
 use simplelog::{LevelFilter,TermLogger,Config};
+use overrides::Overrides;
 
 mod context;
 mod credentials;
 mod hash;
 mod help;
 mod error;
-mod tenant;
+mod overrides;
 mod registration;
 mod resource;
+mod tenant;
 mod utils;
 
 fn app() -> App<'static,'static> {
@@ -122,13 +124,23 @@ fn app() -> App<'static,'static> {
 
     // overrides
 
-    let args_tenant = Arg::with_name("tenant")
+    let args_override_tenant = Arg::with_name("tenant")
         .help("Override the default tenant")
         .global(true)
         .short("t")
         .long("tenant")
         .takes_value(true)
     ;
+
+    let args_override_context = Arg::with_name("context-override")
+        .help("Override the default context")
+        .global(true)
+        .short("c")
+        .long("context")
+        .takes_value(true)
+    ;
+
+    // main app
 
     let app = App::new("Hono Admin Tool")
         .version(crate_version!())
@@ -145,7 +157,9 @@ fn app() -> App<'static,'static> {
             .long("verbose")
             .multiple(true)
         )
-        .arg(args_tenant.clone())
+
+        .arg(args_override_tenant.clone())
+        .arg(args_override_context.clone())
 
         .subcommand(SubCommand::with_name("context")
 
@@ -394,6 +408,9 @@ fn run() -> Result<(), failure::Error> {
 
     debug!("Args: {:#?}", matches);
 
+    // fill overrides
+    let overrides = Overrides::from(&matches);
+
     let (cmd_name, cmd) = matches.subcommand();
 
     // process non-network commands
@@ -405,12 +422,12 @@ fn run() -> Result<(), failure::Error> {
 
     // process remote commands
 
-    let context = context::context_load_current()?;
+    let context = context::context_load_current(Some(&overrides))?;
 
     match cmd_name {
-        "tenant" => tenant::tenant(& mut app, cmd.unwrap(), &context)?,
-        "reg" => registration::registration(& mut app, cmd.unwrap(), &context)?,
-        "cred" => credentials::credentials(& mut app, cmd.unwrap(), &context)?,
+        "tenant" => tenant::tenant(& mut app, cmd.unwrap(), &overrides, &context)?,
+        "reg" => registration::registration(& mut app, cmd.unwrap(), &overrides, &context)?,
+        "cred" => credentials::credentials(& mut app, cmd.unwrap(), &overrides, &context)?,
         _ => help::help(& mut app)?,
     };
 

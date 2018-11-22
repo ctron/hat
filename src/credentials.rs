@@ -32,16 +32,18 @@ use serde_json::value::{Map,Value};
 
 use rand::{RngCore,EntropyRng};
 
+use overrides::Overrides;
+
 type Result<T> = std::result::Result<T, error::Error>;
 
 static RESOURCE_NAME : &str = "credentials";
 
-pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> Result<()> {
+pub fn credentials(app: & mut App, matches: &ArgMatches, overrides: &Overrides, context: &Context) -> Result<()> {
 
     let result = match matches.subcommand() {
         ( "create", Some(cmd_matches)) => credentials_create(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap(),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap(),
@@ -49,48 +51,48 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
         )?,
         ( "update", Some(cmd_matches)) => credentials_update(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "get", Some(cmd_matches)) => credentials_get(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap()
         )?,
         ( "get-for", Some(cmd_matches)) => credentials_get_for(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "delete", Some(cmd_matches)) => credentials_delete(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap()
         )?,
         ( "delete-for", Some(cmd_matches)) => credentials_delete_for(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "enable", Some(cmd_matches)) => credentials_enable(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "disable", Some(cmd_matches)) => credentials_disable(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("type").unwrap()
         )?,
         ( "add-password", Some(cmd_matches)) => credentials_add_password(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("password").unwrap(),
@@ -99,7 +101,7 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
         )?,
         ( "set-password", Some(cmd_matches)) => credentials_add_password(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device"),
             cmd_matches.value_of("auth-id").unwrap(),
             cmd_matches.value_of("password").unwrap(),
@@ -112,9 +114,9 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, context: &Context) -> R
     Ok(result)
 }
 
-fn credentials_delete(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
+fn credentials_delete(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
 
     resource_delete(&context, &url, "Credentials", device)
@@ -122,18 +124,18 @@ fn credentials_delete(context: &Context, tenant:Option<&str>, device:&str) -> Re
 }
 
 
-fn credentials_delete_for(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
+fn credentials_delete_for(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
 
     resource_delete(&context, &url, "Credentials", &format!("{} / {}", auth_id, type_name))
 
 }
 
-fn credentials_create(context: &Context, tenant:Option<&str>, device:&str, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
+fn credentials_create(context: &Context, overrides:&Overrides, device:&str, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant])?;
 
     let mut payload = match payload {
@@ -169,9 +171,9 @@ fn credentials_create(context: &Context, tenant:Option<&str>, device:&str, auth_
     return Ok(());
 }
 
-fn credentials_update(context: &Context, tenant:Option<&str>, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
+fn credentials_update(context: &Context, overrides:&Overrides, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
 
     let mut payload = match payload {
@@ -206,27 +208,27 @@ fn credentials_update(context: &Context, tenant:Option<&str>, auth_id: &str, typ
     return Ok(());
 }
 
-fn credentials_get(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
+fn credentials_get(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
 
     resource_get(&context, &url, "Credentials")
 
 }
 
-fn credentials_get_for(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
+fn credentials_get_for(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
 
     resource_get(&context, &url, "Credentials")
 
 }
 
-fn credentials_enable(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
+fn credentials_enable(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
 
     resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
@@ -239,9 +241,9 @@ fn credentials_enable(context: &Context, tenant:Option<&str>, auth_id:&str, type
     return Ok(());
 }
 
-fn credentials_disable(context: &Context, tenant:Option<&str>, auth_id:&str, type_name:&str) -> Result<()> {
+fn credentials_disable(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
 
     resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
@@ -279,9 +281,9 @@ fn new_entry(plain_password: &str, hash_function:&HashFunction) -> Value {
     return Value::Object(new_pair);
 }
 
-fn credentials_add_password(context: &Context, tenant:Option<&str>, device: Option<&str>, auth_id:&str, password:&str, hash_function:&HashFunction, clear: bool) -> Result<()> {
+fn credentials_add_password(context: &Context, overrides:&Overrides, device: Option<&str>, auth_id:&str, password:&str, hash_function:&HashFunction, clear: bool) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let type_name = "hashed-password";
 
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
@@ -327,7 +329,7 @@ fn credentials_add_password(context: &Context, tenant:Option<&str>, device: Opti
 
                 let payload = serde_json::to_string(&payload)?;
 
-                credentials_create(context, Some(tenant.as_str()), device.unwrap(), auth_id, type_name, Some(&payload))
+                credentials_create(context, overrides, device.unwrap(), auth_id, type_name, Some(&payload))
 
             },
             _ => Err(err)

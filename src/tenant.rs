@@ -28,11 +28,13 @@ use error::ErrorKind::*;
 
 use resource::{resource_delete, resource_get, resource_modify, AuthExt};
 
+use overrides::Overrides;
+
 type Result<T> = std::result::Result<T, error::Error>;
 
 static KEY_ENABLED : &'static str = "enabled";
 
-pub fn tenant(app: & mut App, matches: &ArgMatches, context: &Context) -> Result<()> {
+pub fn tenant(app: & mut App, matches: &ArgMatches, _overrides: &Overrides, context: &Context) -> Result<()> {
 
     let result = match matches.subcommand() {
         ( "create", Some(cmd_matches)) => tenant_create(

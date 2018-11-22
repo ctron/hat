@@ -31,6 +31,8 @@ use std::io::prelude::*;
 use error;
 use error::ErrorKind;
 
+use overrides::Overrides;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Context {
     url: String,
@@ -53,8 +55,8 @@ impl Context {
     pub fn default_tenant(&self) -> Option<String> {
         return self.default_tenant.clone();
     }
-    pub fn make_tenant<T:Sized+ToString>(&self,tenant:Option<T>) -> Result<String, error::Error> {
-        return tenant
+    pub fn make_tenant(&self,overrides:&Overrides) -> Result<String, error::Error> {
+        return overrides.tenant().clone()
             .map(|s|s.to_string())
             .or(self.default_tenant.clone())
             .ok_or(error::Error::from(ErrorKind::GenericError("No tenant specified. Either set a default tenant for the context or use the argument --tenant to provide one.".into())));
@@ -158,15 +160,12 @@ fn context_get_current() -> Result<Option<String>, error::Error> {
     return Ok(Some(current));
 }
 
-pub fn context_load_current() -> Result<Context, error::Error> {
-    context_get_current()
-        .and_then( | result |
-
-            result
-                .ok_or_else(|| ErrorKind::GenericError("No context selected. Create a first context or select an existing one.".to_string()).into())
-                .and_then(|current| context_load(current.as_str()))
-
-        )
+pub fn context_load_current(overrides:Option<&Overrides>) -> Result<Context, error::Error> {
+    overrides
+        .and_then(|o|o.context())
+        .or(context_get_current()?)
+        .ok_or_else(|| ErrorKind::GenericError("No context selected. Create a first context or select an existing one.".to_string()).into())
+        .and_then(|current| context_load(current.as_str()))
 }
 
 #[cfg(unix)]
@@ -322,7 +321,7 @@ fn context_delete(context:&str) -> Result<(), error::Error> {
 
 fn context_show() -> Result<(), error::Error> {
     let context = context_get_current()?;
-    let ctx = context_load_current()?;
+    let ctx = context_load_current(None)?;
 
     println!("Current context: {}", context.unwrap());
     println!("            URL: {}", ctx.url);

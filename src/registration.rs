@@ -27,44 +27,45 @@ use error::ErrorKind::*;
 use utils::Either;
 
 use resource::{resource_delete, resource_get, resource_url, AuthExt, resource_modify};
+use overrides::Overrides;
 
 type Result<T> = std::result::Result<T, error::Error>;
 static RESOURCE_NAME : &str = "registration";
 
-pub fn registration(app: & mut App, matches: &ArgMatches, context: &Context) -> Result<()> {
+pub fn registration(app: & mut App, matches: &ArgMatches, overrides: &Overrides, context: &Context) -> Result<()> {
 
     let result = match matches.subcommand() {
         ( "create", Some(cmd_matches)) => registration_create(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "update", Some(cmd_matches)) => registration_update(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap(),
             cmd_matches.value_of("payload")
         )?,
         ( "get", Some(cmd_matches)) => registration_get(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap()
         )?,
         ( "delete", Some(cmd_matches)) => registration_delete(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap()
         )?,
         ( "enable", Some(cmd_matches)) => registration_enable(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap(),
             true
         )?,
         ( "disable", Some(cmd_matches)) => registration_enable(
             context,
-            cmd_matches.value_of("tenant"),
+            overrides,
             cmd_matches.value_of("device").unwrap(),
             false
         )?,
@@ -74,9 +75,9 @@ pub fn registration(app: & mut App, matches: &ArgMatches, context: &Context) -> 
     Ok(result)
 }
 
-fn registration_create(context: &Context, tenant:Option<&str>, device:&str, payload:Option<&str>) -> Result<()> {
+fn registration_create(context: &Context, overrides:&Overrides, device:&str, payload:Option<&str>) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant])?;
 
     let mut payload = match payload {
@@ -110,9 +111,9 @@ fn registration_create(context: &Context, tenant:Option<&str>, device:&str, payl
 }
 
 
-fn registration_update(context: &Context, tenant:Option<&str>, device:&str, payload:Option<&str>) -> Result<()> {
+fn registration_update(context: &Context, overrides:&Overrides, device:&str, payload:Option<&str>) -> Result<()> {
 
-    let tenant = context.make_tenant(tenant)?;
+    let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.to_string()])?;
 
     let mut payload = match payload {
@@ -145,18 +146,18 @@ fn registration_update(context: &Context, tenant:Option<&str>, device:&str, payl
     return Ok(());
 }
 
-fn registration_delete(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(tenant)?, &device.into()])?;
+fn registration_delete(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
+    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(overrides)?, &device.into()])?;
     resource_delete(&context, &url, "Registration", &device)
 }
 
-fn registration_get(context: &Context, tenant:Option<&str>, device:&str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(tenant)?, &device.into()])?;
+fn registration_get(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
+    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(overrides)?, &device.into()])?;
     resource_get(&context, &url, "Registration")
 }
 
-fn registration_enable(context: &Context, tenant:Option<&str>, device:&str, status:bool) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(tenant)?, &device.into()])?;
+fn registration_enable(context: &Context, overrides:&Overrides, device:&str, status:bool) -> Result<()> {
+    let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(overrides)?, &device.into()])?;
 
     resource_modify(&context, &url, "Registration", |reg| {
 
