@@ -327,6 +327,7 @@ fn context_show() -> Result<(), error::Error> {
     println!("            URL: {}", ctx.url);
     println!("       Username: {}", ctx.username.unwrap_or(String::from("<none>")));
     println!("       Password: {}", ctx.password.and(Some("***")).unwrap_or("<none>"));
+    println!(" Default tenant: {}", ctx.default_tenant.unwrap_or(String::from("<none>")));
 
     return Ok(());
 }
