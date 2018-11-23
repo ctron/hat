@@ -4,6 +4,12 @@ Getting help:
 
     hat --help
 
+## Global switches
+
+Temporarily use a different context (with `-c` or `--context`):
+
+    hat -c context2 reg create …
+
 ## Managing contexts
 
 Create a new context:
@@ -43,6 +49,20 @@ Or update later:
 It is possible to override the default tenant with `-t` or `--tenant`:
 
     hat reg create -t my-tenant 4711 '{…}'
+
+### API Flavor
+
+There is slight differences between the vanilla Eclipse Hono API
+and the Bosch IoT hub API. You can configure a context to use a specific API
+flavor using:
+
+    hat context update foo --api-flavor iothub
+
+Or:
+
+    hat context update foo --api-flavor hono
+
+**Note**: The default is the Eclipse Hono API.
 
 ## Tenants
 
