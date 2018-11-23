@@ -162,7 +162,7 @@ fn tenant_enable(context: &Context, tenant:&str) -> Result<()> {
 
     let url = tenant_url(context, Some(tenant))?;
 
-    resource_modify(&context, &url, tenant, |payload| {
+    resource_modify(&context, &url, &url, tenant, |payload| {
         payload.insert(KEY_ENABLED.into(), Value::Bool(true));
         Ok(())
     })?;
@@ -176,7 +176,7 @@ fn tenant_disable(context: &Context, tenant:&str) -> Result<()> {
 
     let url = tenant_url(context, Some(tenant))?;
 
-    resource_modify(&context, &url, tenant, |payload| {
+    resource_modify(&context, &url, &url, tenant, |payload| {
         payload.insert(KEY_ENABLED.into(), Value::Bool(false));
         Ok(())
     })?;

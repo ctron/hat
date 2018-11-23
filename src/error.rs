@@ -55,6 +55,10 @@ pub enum ErrorKind {
     #[fail(display="Invalid context name: {}", _0)]
     ContextNameError(String),
 
+    // API errors
+    #[fail(display="Unsupported operation: Wrong API flavor")]
+    WrongApiFlavor(),
+
     // remote errors
 
     #[fail(display="Resource not found: {}", _0)]

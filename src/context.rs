@@ -31,7 +31,36 @@ use std::io::prelude::*;
 use error;
 use error::ErrorKind;
 
+use std::fmt;
+
 use overrides::Overrides;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub enum ApiFlavor {
+    EclipseHono,
+    BoschIoTHub,
+}
+
+impl fmt::Display for ApiFlavor {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ApiFlavor::EclipseHono => write!(f, "Eclipse Hono"),
+            ApiFlavor::BoschIoTHub => write!(f, "Bosch IoT Hub"),
+        }
+    }
+}
+
+impl std::str::FromStr for ApiFlavor {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Eclipse Hono" | "EclipseHono" | "hono" => Ok(ApiFlavor::EclipseHono),
+            "Bosch IoT Hub" | "BoschIoTHub" | "bosch" | "iothub" => Ok(ApiFlavor::BoschIoTHub),
+            _ => Err("Invalid value")
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Context {
@@ -39,27 +68,39 @@ pub struct Context {
     username: Option<String>,
     password: Option<String>,
     default_tenant: Option<String>,
+    api_flavor: Option<ApiFlavor>,
 }
 
 impl Context {
     pub fn to_url(&self) -> Result<url::Url,url::ParseError> {
         Url::parse(self.url.as_str())
     }
-    pub fn username(&self) -> Option<String> {
-        return self.username.clone();
+
+    pub fn username(&self) -> &Option<String> {
+        return &self.username;
     }
-    pub fn password(&self) -> Option<String> {
-        return self.password.clone();
+
+    pub fn password(&self) -> &Option<String> {
+        return &self.password;
     }
+
     #[allow(dead_code)]
-    pub fn default_tenant(&self) -> Option<String> {
-        return self.default_tenant.clone();
+    pub fn default_tenant(&self) -> &Option<String> {
+        return &self.default_tenant;
     }
+
     pub fn make_tenant(&self,overrides:&Overrides) -> Result<String, error::Error> {
         return overrides.tenant().clone()
             .map(|s|s.to_string())
             .or(self.default_tenant.clone())
             .ok_or(error::Error::from(ErrorKind::GenericError("No tenant specified. Either set a default tenant for the context or use the argument --tenant to provide one.".into())));
+    }
+
+    pub fn api_flavor(&self) -> &ApiFlavor {
+        match self.api_flavor {
+            Some(ref v) => v,
+            None => &ApiFlavor::EclipseHono,
+        }
     }
 }
 
@@ -71,14 +112,16 @@ pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), error::Error> {
             cmd_matches.value_of("url").unwrap(),
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
-            cmd_matches.value_of("default_tenant")
+            cmd_matches.value_of("default_tenant"),
+            value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
         ( "update", Some(cmd_matches)) => context_update(
             cmd_matches.value_of("context").unwrap(),
             cmd_matches.value_of("url"),
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
-            cmd_matches.value_of("default_tenant")
+            cmd_matches.value_of("default_tenant"),
+            value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
         ( "switch", Some(cmd_matches)) => context_switch(
             cmd_matches.value_of("context").unwrap()
@@ -216,7 +259,7 @@ fn context_switch(context:&str) -> Result<(), error::Error> {
     Ok(())
 }
 
-fn context_create(context:&str, url:&str, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>) -> Result<(), error::Error> {
+fn context_create(context:&str, url:&str, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>, api_flavor:Option<ApiFlavor>) -> Result<(), error::Error> {
 
     if context_file_path(context)?.exists() {
         return Err(ErrorKind::ContextExistsError(context.to_string()).into());
@@ -229,6 +272,7 @@ fn context_create(context:&str, url:&str, username:Option<&str>, password:Option
         username: username.map(|u|u.into()),
         password: password.map(|p|p.into()),
         default_tenant: default_tenant.map(|t|t.into()),
+        api_flavor,
     };
 
     context_store(context, ctx)?;
@@ -239,7 +283,7 @@ fn context_create(context:&str, url:&str, username:Option<&str>, password:Option
     return Ok(());
 }
 
-fn context_update(context:&str, url:Option<&str>, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>) -> Result<(), error::Error> {
+fn context_update(context:&str, url:Option<&str>, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>, api_flavor:Option<ApiFlavor>) -> Result<(), error::Error> {
 
     let mut ctx = context_load(context)?;
 
@@ -283,6 +327,11 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
         }
 
         println!("Updated context '{}' set default tenant to: {}", context, t);
+    }
+
+    if let Some(api_flavor) = api_flavor {
+        ctx.api_flavor=Some(api_flavor.clone());
+        println!("Updated context '{}' set API flavor to: {}", context, api_flavor);
     }
 
     context_store(context, ctx)?;

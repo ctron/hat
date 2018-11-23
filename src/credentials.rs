@@ -14,7 +14,12 @@
 use clap::{App, ArgMatches};
 
 use help::help;
-use context::Context;
+
+use std::collections::HashMap;
+
+use context::{Context,ApiFlavor};
+use context::ApiFlavor::BoschIoTHub;
+
 use reqwest;
 
 use http::method::Method;
@@ -26,13 +31,15 @@ use error::ErrorKind::*;
 
 use hash::{HashFunction};
 
-use resource::{resource_delete, resource_get, resource_url, resource_modify, AuthExt, Tracer};
+use resource::{resource_delete, resource_get, resource_url, resource_url_query, resource_modify, AuthExt, Tracer};
 
 use serde_json::value::{Map,Value};
 
 use rand::{RngCore,EntropyRng};
 
 use overrides::Overrides;
+
+use utils::Either;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -82,13 +89,15 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, overrides: &Overrides, 
             context,
             overrides,
             cmd_matches.value_of("auth-id").unwrap(),
-            cmd_matches.value_of("type").unwrap()
+            cmd_matches.value_of("type").unwrap(),
+            true
         )?,
-        ( "disable", Some(cmd_matches)) => credentials_disable(
+        ( "disable", Some(cmd_matches)) => credentials_enable(
             context,
             overrides,
             cmd_matches.value_of("auth-id").unwrap(),
-            cmd_matches.value_of("type").unwrap()
+            cmd_matches.value_of("type").unwrap(),
+            false
         )?,
         ( "add-password", Some(cmd_matches)) => credentials_add_password(
             context,
@@ -114,7 +123,36 @@ pub fn credentials(app: & mut App, matches: &ArgMatches, overrides: &Overrides, 
     Ok(result)
 }
 
+fn read_url_for(context: &Context, overrides:&Overrides, auth_id: &str, type_name:&str ) -> Result<url::Url> {
+    let tenant = context.make_tenant(overrides)?;
+
+    match context.api_flavor() {
+        ApiFlavor::BoschIoTHub => {
+            let mut query = HashMap::new();
+            query.insert(String::from("auth-id"), auth_id.into());
+            query.insert(String::from("type"), type_name.into());
+            resource_url_query(context, RESOURCE_NAME, &[&tenant], Some(&query))
+        },
+        _ => resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()]),
+    }
+}
+
+fn update_url_for(context: &Context, overrides:&Overrides, auth_id: &str, type_name:&str ) -> Result<url::Url> {
+    let tenant = context.make_tenant(overrides)?;
+
+    match context.api_flavor() {
+        ApiFlavor::BoschIoTHub => {
+            resource_url(context, RESOURCE_NAME, &[&tenant])
+        },
+        _ => resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()]),
+    }
+}
+
 fn credentials_delete(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
+
+    if let BoschIoTHub = context.api_flavor() {
+        return Err(WrongApiFlavor().into());
+    }
 
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
@@ -123,12 +161,9 @@ fn credentials_delete(context: &Context, overrides:&Overrides, device:&str) -> R
 
 }
 
-
 fn credentials_delete_for(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
 
-    let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
-
+    let url = read_url_for(context, overrides, auth_id, type_name)?;
     resource_delete(&context, &url, "Credentials", &format!("{} / {}", auth_id, type_name))
 
 }
@@ -174,7 +209,7 @@ fn credentials_create(context: &Context, overrides:&Overrides, device:&str, auth
 fn credentials_update(context: &Context, overrides:&Overrides, auth_id: &str, type_name: &str, payload:Option<&str>) -> Result<()> {
 
     let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?; // FIXME: remove auth and type name
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -210,52 +245,110 @@ fn credentials_update(context: &Context, overrides:&Overrides, auth_id: &str, ty
 
 fn credentials_get(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
 
+    if let BoschIoTHub = context.api_flavor() {
+        return Err(WrongApiFlavor().into());
+    }
+
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
 
     resource_get(&context, &url, "Credentials")
-
 }
 
 fn credentials_get_for(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
-
-    let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
-
+    let url = read_url_for(context, overrides, auth_id, type_name)?;
     resource_get(&context, &url, "Credentials")
-
 }
 
-fn credentials_enable(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
+fn credentials_modify<F>(context: &Context, overrides: &Overrides, auth_id:&str, type_name:&str, modifier: F) -> Result<reqwest::Response>
+    where F: Fn(& mut Map<String,Value>) -> Result<()> {
 
-    let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
+    let read_url = read_url_for(context, overrides, auth_id, type_name)?;
+    let update_url = read_url_for(context, overrides, auth_id, type_name)?;
 
-    resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
-        payload.insert("enabled".into(), true.into());
+    resource_modify(&context, &read_url, &update_url, &format!("{}/{}", auth_id, type_name), modifier)
+}
+
+fn credentials_enable(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str, state: bool) -> Result<()> {
+
+    credentials_modify(context, overrides, auth_id, type_name, |payload| {
+        payload.insert("enabled".into(), state.into());
         Ok(())
     })?;
 
-    println!("Credentials enabled");
+    println!("Credentials {}", state.either("enabled", "disabled"));
+
+    return Ok(());
+
+}
+
+fn credentials_add_password(context: &Context, overrides:&Overrides, device: Option<&str>, auth_id:&str, password:&str, hash_function:&HashFunction, clear: bool) -> Result<()> {
+
+    let type_name = "hashed-password";
+
+    let read_url = read_url_for(context, overrides, auth_id, type_name)?;
+    let update_url = update_url_for(context, overrides, auth_id, type_name)?;
+
+    let entry = new_entry(password, hash_function);
+
+    resource_modify(&context, &read_url, &update_url, &format!("{}/{}", auth_id, type_name), |payload| {
+
+        if !payload.contains_key("secrets") {
+            payload.insert("secrets".into(), Value::Array(Vec::new()));
+        }
+
+        let secrets = payload
+            .get_mut("secrets")
+            .unwrap()
+            .as_array_mut()
+            .unwrap();
+
+        if clear {
+            secrets.clear();
+        }
+
+        secrets.push(entry.clone());
+
+        Ok(())
+    })
+
+    .and(Ok(()))
+
+    .or_else(|err| {
+
+        if !device.is_some() {
+            return Err(err);
+        }
+
+        match err.kind() {
+            NotFound(_) => {
+
+                println!("No credential set found, creating new one.");
+
+                let mut payload = Map::new();
+
+                payload.insert("secrets".into(), Value::Array([entry.clone()].to_vec()));
+
+                let payload = serde_json::to_string(&payload)?;
+
+                credentials_create(context, overrides, device.unwrap(), auth_id, type_name, Some(&payload))
+
+            },
+            _ => Err(err)
+        }
+    })?;
+
+    if clear {
+        println!("Password set for {}/{}", auth_id, type_name);
+    }
+    else {
+        println!("Password added to {}/{}", auth_id, type_name);
+    }
 
     return Ok(());
 }
 
-fn credentials_disable(context: &Context, overrides:&Overrides, auth_id:&str, type_name:&str) -> Result<()> {
-
-    let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
-
-    resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
-        payload.insert("enabled".into(), false.into());
-        Ok(())
-    })?;
-
-    println!("Credentials disabled");
-
-    return Ok(());
-}
-
+/// Create a new secrets entry, based on `hashed-password`
 fn new_entry(plain_password: &str, hash_function:&HashFunction) -> Value {
 
     let mut new_pair = Map::new();
@@ -279,69 +372,4 @@ fn new_entry(plain_password: &str, hash_function:&HashFunction) -> Value {
     // return as value
 
     return Value::Object(new_pair);
-}
-
-fn credentials_add_password(context: &Context, overrides:&Overrides, device: Option<&str>, auth_id:&str, password:&str, hash_function:&HashFunction, clear: bool) -> Result<()> {
-
-    let tenant = context.make_tenant(overrides)?;
-    let type_name = "hashed-password";
-
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &auth_id.into(), &type_name.into()])?;
-
-    resource_modify(&context, &url, &format!("{}/{}", auth_id, type_name), |payload| {
-
-        if !payload.contains_key("secrets") {
-            payload.insert("secrets".into(), Value::Array(Vec::new()));
-        }
-
-        let secrets = payload
-            .get_mut("secrets")
-            .unwrap()
-            .as_array_mut()
-            .unwrap();
-
-        if clear {
-            secrets.clear();
-        }
-
-        let entry = new_entry(password, hash_function);
-        secrets.push(entry);
-
-        Ok(())
-    })
-
-    .and(Ok(()))
-
-    .or_else(|err| {
-        if !device.is_some() {
-            return Err(err);
-        }
-
-        match err.kind() {
-            NotFound(_) => {
-
-                println!("No credential set found, creating new one.");
-
-                let mut payload = Map::new();
-
-                let entry = new_entry(password, hash_function);
-                payload.insert("secrets".into(), Value::Array([entry].to_vec()));
-
-                let payload = serde_json::to_string(&payload)?;
-
-                credentials_create(context, overrides, device.unwrap(), auth_id, type_name, Some(&payload))
-
-            },
-            _ => Err(err)
-        }
-    })?;
-
-    if clear {
-        println!("Password set for {}/{}", auth_id, type_name);
-    }
-    else {
-        println!("Password added to {}/{}", auth_id, type_name);
-    }
-
-    return Ok(());
 }

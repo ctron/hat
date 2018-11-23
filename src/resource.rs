@@ -12,6 +12,9 @@
  *******************************************************************************/
 
 use url;
+use url::Url;
+
+use std::collections::HashMap;
 
 use http::Method;
 use http::StatusCode;
@@ -33,9 +36,9 @@ pub trait AuthExt {
 impl AuthExt for reqwest::RequestBuilder {
     fn apply_auth ( self, context:&Context ) -> Self {
 
-        if context.username().is_some() && context.password().is_some() {
+        if let Some(user) = context.username() {
 
-            self.basic_auth(context.username().unwrap(), context.password())
+            self.basic_auth(user, context.password().clone())
 
         } else {
 
@@ -57,6 +60,10 @@ impl Tracer for reqwest::RequestBuilder {
 }
 
 pub fn resource_url<S:ToString+Sized>(context: &Context, resource: &str, segments: &[&S]) -> Result<url::Url> {
+    resource_url_query(context, resource, segments, None)
+}
+
+pub fn resource_url_query<S:ToString+Sized>(context: &Context, resource: &str, segments: &[&S], query: Option<&HashMap<String,String>>) -> Result<url::Url> {
     let mut url = context.to_url()?;
 
     {
@@ -65,6 +72,12 @@ pub fn resource_url<S:ToString+Sized>(context: &Context, resource: &str, segment
 
         for seg in segments {
             path.push(seg.to_string().as_str());
+        }
+    }
+
+    if let Some(q) = query {
+        for ( name, value ) in q {
+            url.query_pairs_mut().append_pair(name, value);
         }
     }
 
@@ -118,7 +131,7 @@ pub fn resource_get(context:&Context, url: &url::Url, resource_type: &str) -> Re
 
 }
 
-pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resource_name: &str, creator: C, modifier : F) -> Result<reqwest::Response>
+pub fn resource_modify_with_create<C, F>(context:&Context, read_url:&Url, update_url:&Url, resource_name: &str, creator: C, modifier : F) -> Result<reqwest::Response>
     where
         F: Fn(& mut Map<String,Value>) -> Result<()>,
         C: Fn() -> Result<Map<String,Value>>
@@ -129,7 +142,7 @@ pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resour
     // get
 
     let mut payload : Map<String,Value> = client
-        .request(Method::GET, url.clone())
+        .request(Method::GET, read_url.clone())
         .apply_auth(context)
         .trace()
         .send()
@@ -149,7 +162,7 @@ pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resour
     // update
 
     client
-        .request(Method::PUT, url.clone())
+        .request(Method::PUT, update_url.clone())
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json" )
         .json(&payload)
@@ -166,8 +179,8 @@ pub fn resource_modify_with_create<C, F>(context:&Context, url:&url::Url, resour
         })
 }
 
-pub fn resource_modify<F>(context:&Context, url:&url::Url, resource_name: &str, modifier : F) -> Result<reqwest::Response>
-    where F: Fn(& mut Map<String,Value>) -> Result<()>  {
+pub fn resource_modify<F>(context:&Context, read_url:&Url, update_url:&Url, resource_name: &str, modifier : F) -> Result<reqwest::Response>
+    where F: Fn(& mut Map<String,Value>) -> Result<()> {
 
-    resource_modify_with_create(context, url, resource_name, || Err(NotFound(resource_name.into()).into()), modifier)
+    resource_modify_with_create(context, read_url, update_url, resource_name, || Err(NotFound(resource_name.into()).into()), modifier)
 }

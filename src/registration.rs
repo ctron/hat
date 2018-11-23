@@ -159,7 +159,7 @@ fn registration_get(context: &Context, overrides:&Overrides, device:&str) -> Res
 fn registration_enable(context: &Context, overrides:&Overrides, device:&str, status:bool) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, &[&context.make_tenant(overrides)?, &device.into()])?;
 
-    resource_modify(&context, &url, "Registration", |reg| {
+    resource_modify(&context, &url, &url, "Registration", |reg| {
 
         reg.insert("enabled".into(), serde_json::value::Value::Bool(status));
         Ok(())

@@ -87,6 +87,13 @@ fn app() -> App<'static,'static> {
         .long("default-tenant")
         .takes_value(true)
     ;
+    let args_ctx_api_flavor = Arg::with_name("api_flavor")
+        .help("Set the API flavor")
+        .long("api-flavor")
+        .alias("api-flavour")
+        .possible_values(&["hono", "iothub"])
+        .takes_value(true)
+    ;
 
     // tenant
 
@@ -173,6 +180,7 @@ fn app() -> App<'static,'static> {
                 .arg(args_ctx_username.clone())
                 .arg(args_ctx_password.clone())
                 .arg(args_ctx_default_tenant.clone())
+                .arg(args_ctx_api_flavor.clone())
             )
             .subcommand(SubCommand::with_name("update")
                 .about("Update an existing context")
@@ -185,6 +193,7 @@ fn app() -> App<'static,'static> {
                 .arg(args_ctx_username.clone())
                 .arg(args_ctx_password.clone())
                 .arg(args_ctx_default_tenant.clone())
+                .arg(args_ctx_api_flavor.clone())
             )
             .subcommand(SubCommand::with_name("delete")
                 .about("Delete a context")
