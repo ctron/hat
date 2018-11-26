@@ -293,9 +293,8 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
         println!("Updated context '{}' URL to: {}", context, ctx.url);
     }
 
-    if username.is_some() {
+    if let Some(u) = username {
 
-        let u = username.unwrap();
         if u.is_empty() {
             ctx.username = None;
         } else {
@@ -305,9 +304,8 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
         println!("Updated context '{}' set username to: {}", context, u);
     }
 
-    if password.is_some() {
+    if let Some(p) = password {
 
-        let p = password.unwrap();
         if p.is_empty() {
             ctx.password = None;
         } else {
@@ -317,9 +315,8 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
         println!("Updated context '{}' set password", context);
     }
 
-    if default_tenant.is_some() {
+    if let Some(t) = default_tenant {
 
-        let t = default_tenant.unwrap();
         if t.is_empty() {
             ctx.default_tenant = None;
         } else {
@@ -329,9 +326,9 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
         println!("Updated context '{}' set default tenant to: {}", context, t);
     }
 
-    if let Some(api_flavor) = api_flavor {
-        ctx.api_flavor=Some(api_flavor.clone());
-        println!("Updated context '{}' set API flavor to: {}", context, api_flavor);
+    if let Some(a) = api_flavor {
+        ctx.api_flavor=Some(a.clone());
+        println!("Updated context '{}' set API flavor to: {}", context, a);
     }
 
     context_store(context, ctx)?;
