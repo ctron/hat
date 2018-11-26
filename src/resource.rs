@@ -27,6 +27,8 @@ use context::Context;
 
 use serde_json::{Map,Value};
 
+use output::display_json_value;
+
 type Result<T> = std::result::Result<T, error::Error>;
 
 pub trait AuthExt {
@@ -125,7 +127,7 @@ pub fn resource_get(context:&Context, url: &url::Url, resource_type: &str) -> Re
         })?
         .json()?;
 
-    println!("{}", ::serde_json::to_string_pretty(&result)?);
+    display_json_value(&result)?;
 
     Ok(())
 
