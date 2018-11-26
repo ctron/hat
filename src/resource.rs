@@ -67,7 +67,7 @@ pub fn resource_url_query<S:ToString+Sized>(context: &Context, resource: &str, s
     let mut url = context.to_url()?;
 
     {
-        let mut path = url.path_segments_mut().map_err(|_| error::ErrorKind::UrlError())?;
+        let mut path = url.path_segments_mut().map_err(|_| error::ErrorKind::UrlError)?;
         path.push(resource);
 
         for seg in segments {
@@ -173,7 +173,7 @@ pub fn resource_modify_with_create<C, F>(context:&Context, read_url:&Url, update
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),
                 StatusCode::NOT_FOUND => Err(NotFound(resource_name.into()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest().into()),
+                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
         })

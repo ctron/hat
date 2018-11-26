@@ -74,7 +74,7 @@ fn tenant_url(context: &Context, tenant:Option<&str> ) -> Result<url::Url> {
     let mut url = context.to_url()?;
 
     {
-        let mut path = url.path_segments_mut().map_err(|_| error::ErrorKind::UrlError())?;
+        let mut path = url.path_segments_mut().map_err(|_| error::ErrorKind::UrlError)?;
 
         path
             .push("tenant");
@@ -109,7 +109,7 @@ fn tenant_create(context: &Context, tenant:&str, payload:Option<&str>) -> Result
             match response.status() {
                 StatusCode::CREATED => Ok(response),
                 StatusCode::CONFLICT => Err(AlreadyExists(tenant.to_string()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest().into()),
+                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
         })?;
@@ -143,7 +143,7 @@ fn tenant_update(context: &Context, tenant:&str, payload:Option<&str>) -> Result
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),
                 StatusCode::NOT_FOUND => Err(NotFound(tenant.to_string()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest().into()),
+                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
         })?;

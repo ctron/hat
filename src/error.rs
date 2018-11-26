@@ -35,16 +35,16 @@ pub enum ErrorKind {
     Request(String),
 
     #[fail(display="URL format error")]
-    UrlError(),
+    UrlError,
 
     #[fail(display="JSON format error: {:?}", _0)]
     JsonError(::serde_json::error::Category),
 
     #[fail(display="YAML format error")]
-    YamlError(),
+    YamlError,
 
     #[fail(display="Invalid UTF-8 string")]
-    Utf8Error(),
+    Utf8Error,
 
     // context errors
 
@@ -57,7 +57,7 @@ pub enum ErrorKind {
 
     // API errors
     #[fail(display="Unsupported operation: Wrong API flavor")]
-    WrongApiFlavor(),
+    WrongApiFlavor,
 
     // remote errors
 
@@ -68,7 +68,7 @@ pub enum ErrorKind {
     AlreadyExists(String),
 
     #[fail(display="Malformed request")]
-    MalformedRequest(),
+    MalformedRequest,
 
     #[fail(display="Unexpected return code: {}", _0)]
     UnexpectedResult(http::StatusCode)
@@ -119,7 +119,7 @@ impl From<reqwest::Error> for Error {
 
 impl From<url::ParseError> for Error {
     fn from(_err: url::ParseError) -> Error {
-        ErrorKind::UrlError().into()
+        ErrorKind::UrlError.into()
     }
 }
 
@@ -132,7 +132,7 @@ impl From<serde_json::Error> for Error {
 
 impl From<serde_yaml::Error> for Error {
     fn from(err: serde_yaml::Error) -> Error {
-        err.context(ErrorKind::YamlError()).into()
+        err.context(ErrorKind::YamlError).into()
     }
 }
 
@@ -152,6 +152,6 @@ impl From<clap::Error> for Error {
 
 impl From<std::str::Utf8Error> for Error {
     fn from(err: std::str::Utf8Error) -> Error {
-        err.context(ErrorKind::Utf8Error()).into()
+        err.context(ErrorKind::Utf8Error).into()
     }
 }

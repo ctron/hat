@@ -151,7 +151,7 @@ fn update_url_for(context: &Context, overrides:&Overrides, auth_id: &str, type_n
 fn credentials_delete(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
 
     if let BoschIoTHub = context.api_flavor() {
-        return Err(WrongApiFlavor().into());
+        return Err(WrongApiFlavor.into());
     }
 
     let tenant = context.make_tenant(overrides)?;
@@ -196,7 +196,7 @@ fn credentials_create(context: &Context, overrides:&Overrides, device:&str, auth
             match response.status() {
                 StatusCode::CREATED => Ok(response),
                 StatusCode::CONFLICT => Err(AlreadyExists(device.to_string()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest().into()),
+                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
         })?;
@@ -233,7 +233,7 @@ fn credentials_update(context: &Context, overrides:&Overrides, auth_id: &str, ty
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),
                 StatusCode::NOT_FOUND => Err(NotFound(format!("{}/{}", auth_id, type_name)).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest().into()),
+                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
         })?;
@@ -246,7 +246,7 @@ fn credentials_update(context: &Context, overrides:&Overrides, auth_id: &str, ty
 fn credentials_get(context: &Context, overrides:&Overrides, device:&str) -> Result<()> {
 
     if let BoschIoTHub = context.api_flavor() {
-        return Err(WrongApiFlavor().into());
+        return Err(WrongApiFlavor.into());
     }
 
     let tenant = context.make_tenant(overrides)?;
