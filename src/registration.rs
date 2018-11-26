@@ -100,7 +100,7 @@ fn registration_create(context: &Context, overrides:&Overrides, device:&str, pay
             match response.status() {
                 StatusCode::CREATED => Ok(response),
                 StatusCode::CONFLICT => Err(AlreadyExists(device.to_string()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest().into()),
+                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
         })?;
@@ -136,7 +136,7 @@ fn registration_update(context: &Context, overrides:&Overrides, device:&str, pay
             match response.status() {
                 StatusCode::NO_CONTENT => Ok(response),
                 StatusCode::NOT_FOUND => Err(NotFound(device.to_string()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest().into()),
+                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
                 _ => Err(UnexpectedResult(response.status()).into())
             }
         })?;
