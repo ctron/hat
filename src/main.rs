@@ -50,6 +50,7 @@ mod credentials;
 mod hash;
 mod help;
 mod error;
+mod output;
 mod overrides;
 mod registration;
 mod resource;
