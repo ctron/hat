@@ -23,6 +23,8 @@ matrix:
       after_success:
         - if test -n "$TRAVIS_TAG"; then ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-macos-64bit.tar.gz hat ); fi
     - os: windows
+      install:
+        - choco install wixtoolset
       after_success:
         - if test -n "$TRAVIS_TAG"; then 7z a -tzip hono-admin-tool-${TRAVIS_TAG}-windows-64bit.zip ./target/release/hat.exe; fi
 
