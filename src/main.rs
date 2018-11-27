@@ -40,6 +40,8 @@ extern crate rand;
 
 extern crate sha2;
 
+extern crate colored;
+
 use std::result::Result;
 use clap::{Arg, App, SubCommand, AppSettings};
 use simplelog::{LevelFilter,TermLogger,Config};
@@ -132,7 +134,7 @@ fn app() -> App<'static,'static> {
 
     // overrides
 
-    let args_override_tenant = Arg::with_name("tenant")
+    let args_override_tenant = Arg::with_name("tenant-override")
         .help("Override the default tenant")
         .global(true)
         .short("t")
