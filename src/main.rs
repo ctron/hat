@@ -40,8 +40,6 @@ extern crate rand;
 
 extern crate sha2;
 
-extern crate colored;
-
 use std::result::Result;
 use clap::{Arg, App, SubCommand, AppSettings};
 use simplelog::{LevelFilter,TermLogger,Config};
