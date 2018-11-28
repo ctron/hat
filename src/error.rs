@@ -155,3 +155,9 @@ impl From<std::str::Utf8Error> for Error {
         err.context(ErrorKind::Utf8Error).into()
     }
 }
+
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(err: std::string::FromUtf8Error) -> Error {
+        err.context(ErrorKind::Utf8Error).into()
+    }
+}
