@@ -21,18 +21,18 @@ use std::io;
 
 use error;
 
-pub struct ColoredFormatter<'a, F: 'a>
+pub struct ColoredFormatter<F>
     where F: Formatter
 {
-    formatter: &'a mut F,
-    colorizer: Vec<&'a Fn(ColoredString) -> ColoredString>,
+    formatter: F,
+    colorizer: Vec<fn(ColoredString) -> ColoredString>,
 }
 
-impl <'a, F> ColoredFormatter<'a, F>
+impl <F> ColoredFormatter<F>
     where
         F: Formatter
 {
-    pub fn new(formatter: &'a mut F) -> Self {
+    pub fn new(formatter: F) -> Self {
         return ColoredFormatter{
             formatter,
             colorizer: Vec::new(),
@@ -44,10 +44,9 @@ fn color_object_key (c: ColoredString) -> ColoredString {
     c.bright_blue().bold()
 }
 
-fn colored<W: ?Sized, C: ?Sized, H> ( writer: &mut W, colorizer: Option<&C>, mut handler: H ) -> io::Result<()>
+fn colored<W: ?Sized, H> ( writer: &mut W, colorizer: Option<fn(ColoredString) -> ColoredString>, mut handler: H ) -> io::Result<()>
     where
         W: io::Write,
-        C: Fn(ColoredString) -> ColoredString,
         H: FnMut(& mut Vec<u8>) -> io::Result<()>,
 {
     let mut w : Vec<u8> = Vec::with_capacity(128);
@@ -61,7 +60,7 @@ fn colored<W: ?Sized, C: ?Sized, H> ( writer: &mut W, colorizer: Option<&C>, mut
     Ok(writer.write_all(out.as_bytes())?)
 }
 
-impl <'a, F> Formatter for ColoredFormatter<'a, F>
+impl <F> Formatter for ColoredFormatter<F>
     where
         F: Formatter
 {
@@ -160,21 +159,21 @@ impl <'a, F> Formatter for ColoredFormatter<'a, F>
         where
             W: io::Write,
     {
-        colored(writer, self.colorizer.last().map(Clone::clone), |w| self.formatter.begin_string(w))
+        colored(writer, self.colorizer.last().cloned(), |w| self.formatter.begin_string(w))
     }
 
     fn end_string<W: ?Sized>(&mut self, writer: &mut W) -> io::Result<()>
         where
             W: io::Write,
     {
-        colored(writer, self.colorizer.last().map(Clone::clone), |w| self.formatter.end_string(w))
+        colored(writer, self.colorizer.last().cloned(), |w| self.formatter.end_string(w))
     }
 
     fn write_string_fragment<W: ?Sized>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
         where
             W: io::Write,
     {
-        colored(writer, self.colorizer.last().map(Clone::clone), |w| self.formatter.write_string_fragment(w, fragment))
+        colored(writer, self.colorizer.last().cloned(), |w| self.formatter.write_string_fragment(w, fragment))
     }
 
     fn begin_array<W: ?Sized>(&mut self, writer: &mut W) -> io::Result<()>
@@ -209,21 +208,21 @@ impl <'a, F> Formatter for ColoredFormatter<'a, F>
         where
             W: io::Write,
     {
-        colored(writer, Some(&Colorize::bold), |w| self.formatter.begin_object(w))
+        colored(writer, Some(Colorize::bold), |w| self.formatter.begin_object(w))
     }
 
     fn end_object<W: ?Sized>(&mut self, writer: &mut W) -> io::Result<()>
         where
             W: io::Write,
     {
-        colored(writer, Some(&Colorize::bold), |w| self.formatter.end_object(w))
+        colored(writer, Some(Colorize::bold), |w| self.formatter.end_object(w))
     }
 
     fn begin_object_key<W: ?Sized>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
         where
             W: io::Write,
     {
-        self.colorizer.push(&color_object_key);
+        self.colorizer.push(color_object_key);
         self.formatter.begin_object_key(writer, first)
     }
 
@@ -240,7 +239,7 @@ impl <'a, F> Formatter for ColoredFormatter<'a, F>
         where
             W: io::Write,
     {
-        self.colorizer.push(&Colorize::green);
+        self.colorizer.push(Colorize::green);
         self.formatter.begin_object_value(writer)
     }
 
@@ -263,8 +262,7 @@ impl <'a, F> Formatter for ColoredFormatter<'a, F>
 }
 
 pub fn display_json_value(value: &Value) -> std::result::Result<(), error::Error> {
-    let mut formatter = PrettyFormatter::new();
-    let formatter = ColoredFormatter::new(& mut formatter);
+    let formatter = ColoredFormatter::new(PrettyFormatter::new());
 
     let mut writer : Vec<u8> = Vec::with_capacity(128);
     {
