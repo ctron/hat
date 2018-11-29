@@ -41,6 +41,7 @@ extern crate rand;
 extern crate sha2;
 
 extern crate colored;
+extern crate colored_json;
 
 use std::result::Result;
 use clap::{Arg, App, SubCommand, AppSettings};
