@@ -25,7 +25,8 @@ pub fn display_json_value(value: &Value) -> std::result::Result<(), error::Error
 
     {
         let mut out = out.lock();
-        write_colored_json(value, & mut out)?
+        write_colored_json(value, & mut out)?;
+        out.write_all("\n".as_bytes())?;
     }
 
     out.flush()?;
