@@ -37,4 +37,4 @@ rand = "0.5"
 sha2 = "0.8"
 
 colored = "1.6"
-colored_json = "0.6"
+colored_json = "1.0"

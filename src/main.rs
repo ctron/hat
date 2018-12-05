@@ -448,6 +448,10 @@ fn run() -> Result<(), failure::Error> {
 }
 
 fn main() {
+
+    #[cfg(windows)]
+    let _enabled = colored_json::enable_ansi_support();
+
     let rc = run();
 
     if rc.is_err() {
