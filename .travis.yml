@@ -25,7 +25,7 @@ matrix:
     - os: windows
       before_install:
         - choco install nuget.commandline
-        - nuget install WiX.Toolset
+        - nuget install WiX
       after_success:
         - if test -n "$TRAVIS_TAG"; then 7z a -tzip hono-admin-tool-${TRAVIS_TAG}-windows-64bit.zip ./target/release/hat.exe; fi
 
