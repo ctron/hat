@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<?include $(sys.CURRENTDIR)\Include.wxi?>
+<?include $(sys.CURRENTDIR)\hat.wxi?>
 
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product Name='$(var.ProductName)'
@@ -14,7 +14,7 @@
                  Keywords='Installer'
                  Description="Hono Admin Tool Installer"
                  Manufacturer='Jens Reimann'
-                 InstallerVersion='100'
+                 InstallerVersion='300'
                  Languages='1033' SummaryCodepage='1252'
                  Compressed='yes' />
 

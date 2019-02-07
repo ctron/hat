@@ -12,3 +12,9 @@
 # Eclipse
 
 .project
+
+# WiX
+
+*.wixobj
+*.wixpdb
+*.msi
