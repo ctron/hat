@@ -29,7 +29,7 @@ matrix:
       script:
         - cargo test --release
         - C:\Users\travis\build\ctron\hat\WiX.3.11.1\tools\candle -dVersion=$(echo ${TRAVIS_TAG:-v0.0.0} | sed s/^v//) -arch x64 hat.wxs
-        - C:\Users\travis\build\ctron\hat\WiX.3.11.1\tools\light hat.wixobj -o hat-${TRAVIS_TAG:-untagged}-x64.msi
+        - C:\Users\travis\build\ctron\hat\WiX.3.11.1\tools\light hat.wixobj -o hono-admin-tool-${TRAVIS_TAG:-untagged}-windows-x64.msi
       after_success:
         - if test -n "$TRAVIS_TAG"; then 7z a -tzip hono-admin-tool-${TRAVIS_TAG}-windows-64bit.zip ./target/release/hat.exe; fi
 
