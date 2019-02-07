@@ -11,22 +11,22 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
-use std::result::Result;
 use std::fs::File;
+use std::result::Result;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
-use url::{Url};
-use url::percent_encoding::{utf8_percent_encode,percent_decode,DEFAULT_ENCODE_SET};
+use url::percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
+use url::Url;
 
 use clap::{App, ArgMatches};
 use help::help;
 
 use std::str::Utf8Error;
 
-use std::path::*;
 use std::io::prelude::*;
+use std::path::*;
 
 use error;
 use error::ErrorKind;
@@ -57,7 +57,7 @@ impl std::str::FromStr for ApiFlavor {
         match s {
             "Eclipse Hono" | "EclipseHono" | "hono" => Ok(ApiFlavor::EclipseHono),
             "Bosch IoT Hub" | "BoschIoTHub" | "bosch" | "iothub" => Ok(ApiFlavor::BoschIoTHub),
-            _ => Err("Invalid value")
+            _ => Err("Invalid value"),
         }
     }
 }
@@ -72,7 +72,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn to_url(&self) -> Result<url::Url,url::ParseError> {
+    pub fn to_url(&self) -> Result<url::Url, url::ParseError> {
         Url::parse(self.url.as_str())
     }
 
@@ -89,7 +89,7 @@ impl Context {
         return &self.default_tenant;
     }
 
-    pub fn make_tenant(&self,overrides:&Overrides) -> Result<String, error::Error> {
+    pub fn make_tenant(&self, overrides: &Overrides) -> Result<String, error::Error> {
         return overrides.tenant().clone()
             .map(|s|s.to_string())
             .or(self.default_tenant.clone())
@@ -104,10 +104,9 @@ impl Context {
     }
 }
 
-pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), error::Error> {
-
+pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> {
     match matches.subcommand() {
-        ( "create", Some(cmd_matches)) => context_create(
+        ("create", Some(cmd_matches)) => context_create(
             cmd_matches.value_of("context").unwrap(),
             cmd_matches.value_of("url").unwrap(),
             cmd_matches.value_of("username"),
@@ -115,7 +114,7 @@ pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), error::Error> {
             cmd_matches.value_of("default_tenant"),
             value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
-        ( "update", Some(cmd_matches)) => context_update(
+        ("update", Some(cmd_matches)) => context_update(
             cmd_matches.value_of("context").unwrap(),
             cmd_matches.value_of("url"),
             cmd_matches.value_of("username"),
@@ -123,24 +122,19 @@ pub fn context(app:& mut App, matches:&ArgMatches) -> Result<(), error::Error> {
             cmd_matches.value_of("default_tenant"),
             value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
-        ( "switch", Some(cmd_matches)) => context_switch(
-            cmd_matches.value_of("context").unwrap()
-        ),
-        ( "delete", Some(cmd_matches)) => context_delete(
-            cmd_matches.value_of("context").unwrap()
-        ),
-        ( "list", Some(_)) => context_list(),
-        ( "show", Some(_)) => context_show(),
-        _ => help(app)
+        ("switch", Some(cmd_matches)) => context_switch(cmd_matches.value_of("context").unwrap()),
+        ("delete", Some(cmd_matches)) => context_delete(cmd_matches.value_of("context").unwrap()),
+        ("list", Some(_)) => context_list(),
+        ("show", Some(_)) => context_show(),
+        _ => help(app),
     }
-
 }
 
-fn context_encode_file_name(context:&str) -> String {
-    utf8_percent_encode(context,DEFAULT_ENCODE_SET).collect()
+fn context_encode_file_name(context: &str) -> String {
+    utf8_percent_encode(context, DEFAULT_ENCODE_SET).collect()
 }
 
-fn context_decode_file_name(name:&str) -> Result<String,Utf8Error> {
+fn context_decode_file_name(name: &str) -> Result<String, Utf8Error> {
     let iter = percent_decode(name.as_bytes());
 
     Ok(iter.decode_utf8()?.to_string())
@@ -149,48 +143,39 @@ fn context_decode_file_name(name:&str) -> Result<String,Utf8Error> {
 fn context_config_dir() -> Result<PathBuf, error::Error> {
     let dir = dirs::config_dir().expect("Unable to evaluate user's configuration directory");
 
-    return Ok(
-        dir
-            .join("hat")
-    );
+    return Ok(dir.join("hat"));
 }
 
 fn context_contexts_dir() -> Result<PathBuf, error::Error> {
-    context_config_dir()
-        .map( | path | path.join("contexts") )
+    context_config_dir().map(|path| path.join("contexts"))
 }
 
-fn context_file_path(context:&str) -> Result<PathBuf, error::Error> {
-
+fn context_file_path(context: &str) -> Result<PathBuf, error::Error> {
     let name = context.trim();
 
     if name.is_empty() {
         return Err(ErrorKind::ContextNameError(context.to_string()).into());
     }
 
-    return context_contexts_dir()
-        .map( | path |
-            path.join(context_encode_file_name(context))
-        );
+    return context_contexts_dir().map(|path| path.join(context_encode_file_name(context)));
 }
 
-fn context_load(context:&str) -> Result<Context, error::Error> {
+fn context_load(context: &str) -> Result<Context, error::Error> {
     let file = File::open(context_file_path(context)?);
 
     match file {
         Ok(file) => Ok(serde_yaml::from_reader(file)?),
-        Err(err) => {
-            match err.kind() {
-                std::io::ErrorKind::NotFound => Err(ErrorKind::ContextUnknownError(context.into()).into()),
-                _ => Err(err.into())
+        Err(err) => match err.kind() {
+            std::io::ErrorKind::NotFound => {
+                Err(ErrorKind::ContextUnknownError(context.into()).into())
             }
-        }
+            _ => Err(err.into()),
+        },
     }
 }
 
 fn context_get_current() -> Result<Option<String>, error::Error> {
-
-    let path = context_config_dir().map(| path | path.join("current"))?;
+    let path = context_config_dir().map(|path| path.join("current"))?;
 
     if !path.exists() {
         return Ok(None);
@@ -198,59 +183,60 @@ fn context_get_current() -> Result<Option<String>, error::Error> {
 
     let mut current = String::new();
 
-    File::open(path)?.read_to_string(& mut current)?;
+    File::open(path)?.read_to_string(&mut current)?;
 
     return Ok(Some(current));
 }
 
-pub fn context_load_current(overrides:Option<&Overrides>) -> Result<Context, error::Error> {
+pub fn context_load_current(overrides: Option<&Overrides>) -> Result<Context, error::Error> {
     overrides
-        .and_then(|o|o.context())
+        .and_then(|o| o.context())
         .or(context_get_current()?)
-        .ok_or_else(|| ErrorKind::GenericError("No context selected. Create a first context or select an existing one.".to_string()).into())
-        .and_then(|current| context_load(current.as_str()))
+        .ok_or_else(|| {
+            ErrorKind::GenericError(
+                "No context selected. Create a first context or select an existing one."
+                    .to_string(),
+            ).into()
+        }).and_then(|current| context_load(current.as_str()))
 }
 
 #[cfg(unix)]
-fn limit_access(file: & mut File) -> Result<(), error::Error> {
-
+fn limit_access(file: &mut File) -> Result<(), error::Error> {
     let mut permissions = file.metadata()?.permissions();
     permissions.set_mode(0o600);
     file.set_permissions(permissions)?;
 
     Ok(())
-
 }
 
 #[cfg(not(unix))]
-fn limit_access(file: & mut File) -> Result<(), error::Error> {
+fn limit_access(file: &mut File) -> Result<(), error::Error> {
     Ok(())
 }
 
-fn context_store(context_name:&str, context:Context) -> Result<(), error::Error> {
+fn context_store(context_name: &str, context: Context) -> Result<(), error::Error> {
     let path = context_file_path(context_name)?;
 
     std::fs::create_dir_all(path.parent().unwrap())?;
 
     let mut file = File::create(path)?;
 
-    limit_access(& mut file)?;
+    limit_access(&mut file)?;
 
     file.write_all(serde_yaml::to_string(&context)?.as_bytes())?;
 
     return Ok(());
 }
 
-fn context_validate_url(url:&str) -> Result<(), error::Error> {
+fn context_validate_url(url: &str) -> Result<(), error::Error> {
     Url::parse(&url)?;
     return Ok(());
 }
 
-fn context_switch(context:&str) -> Result<(), error::Error> {
-
+fn context_switch(context: &str) -> Result<(), error::Error> {
     context_load(context)?;
 
-    let path = context_config_dir().map(| path | path.join("current"))?;
+    let path = context_config_dir().map(|path| path.join("current"))?;
 
     File::create(path)?.write_all(context.trim().as_bytes())?;
 
@@ -259,8 +245,14 @@ fn context_switch(context:&str) -> Result<(), error::Error> {
     Ok(())
 }
 
-fn context_create(context:&str, url:&str, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>, api_flavor:Option<ApiFlavor>) -> Result<(), error::Error> {
-
+fn context_create(
+    context: &str,
+    url: &str,
+    username: Option<&str>,
+    password: Option<&str>,
+    default_tenant: Option<&str>,
+    api_flavor: Option<ApiFlavor>,
+) -> Result<(), error::Error> {
     if context_file_path(context)?.exists() {
         return Err(ErrorKind::ContextExistsError(context.to_string()).into());
     }
@@ -269,9 +261,9 @@ fn context_create(context:&str, url:&str, username:Option<&str>, password:Option
 
     let ctx = Context {
         url: url.into(),
-        username: username.map(|u|u.into()),
-        password: password.map(|p|p.into()),
-        default_tenant: default_tenant.map(|t|t.into()),
+        username: username.map(|u| u.into()),
+        password: password.map(|p| p.into()),
+        default_tenant: default_tenant.map(|t| t.into()),
         api_flavor,
     };
 
@@ -283,18 +275,23 @@ fn context_create(context:&str, url:&str, username:Option<&str>, password:Option
     return Ok(());
 }
 
-fn context_update(context:&str, url:Option<&str>, username:Option<&str>, password:Option<&str>, default_tenant:Option<&str>, api_flavor:Option<ApiFlavor>) -> Result<(), error::Error> {
-
+fn context_update(
+    context: &str,
+    url: Option<&str>,
+    username: Option<&str>,
+    password: Option<&str>,
+    default_tenant: Option<&str>,
+    api_flavor: Option<ApiFlavor>,
+) -> Result<(), error::Error> {
     let mut ctx = context_load(context)?;
 
-    if  url.is_some() {
+    if url.is_some() {
         context_validate_url(url.unwrap())?;
         ctx.url = url.unwrap().into();
         println!("Updated context '{}' URL to: {}", context, ctx.url);
     }
 
     if let Some(u) = username {
-
         if u.is_empty() {
             ctx.username = None;
         } else {
@@ -305,7 +302,6 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
     }
 
     if let Some(p) = password {
-
         if p.is_empty() {
             ctx.password = None;
         } else {
@@ -316,7 +312,6 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
     }
 
     if let Some(t) = default_tenant {
-
         if t.is_empty() {
             ctx.default_tenant = None;
         } else {
@@ -327,7 +322,7 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
     }
 
     if let Some(a) = api_flavor {
-        ctx.api_flavor=Some(a.clone());
+        ctx.api_flavor = Some(a.clone());
         println!("Updated context '{}' set API flavor to: {}", context, a);
     }
 
@@ -336,8 +331,7 @@ fn context_update(context:&str, url:Option<&str>, username:Option<&str>, passwor
     return Ok(());
 }
 
-fn context_delete(context:&str) -> Result<(), error::Error> {
-
+fn context_delete(context: &str) -> Result<(), error::Error> {
     // delete context file
 
     let path = context_file_path(context)?;
@@ -348,11 +342,9 @@ fn context_delete(context:&str) -> Result<(), error::Error> {
 
         let current = context_get_current()?;
         if current == Some(context.to_string()) {
-            let cp = context_config_dir()
-                .map( | path | path.join("current") )?;
+            let cp = context_config_dir().map(|path| path.join("current"))?;
             std::fs::remove_file(cp)?;
         }
-
     } else {
         println!("Nothing to delete");
         return Ok(());
@@ -371,15 +363,23 @@ fn context_show() -> Result<(), error::Error> {
 
     println!("Current context: {}", context.unwrap());
     println!("            URL: {}", ctx.url);
-    println!("       Username: {}", ctx.username.unwrap_or(String::from("<none>")));
-    println!("       Password: {}", ctx.password.and(Some("***")).unwrap_or("<none>"));
-    println!(" Default tenant: {}", ctx.default_tenant.unwrap_or(String::from("<none>")));
+    println!(
+        "       Username: {}",
+        ctx.username.unwrap_or(String::from("<none>"))
+    );
+    println!(
+        "       Password: {}",
+        ctx.password.and(Some("***")).unwrap_or("<none>")
+    );
+    println!(
+        " Default tenant: {}",
+        ctx.default_tenant.unwrap_or(String::from("<none>"))
+    );
 
     return Ok(());
 }
 
 fn context_list() -> Result<(), error::Error> {
-
     let path = context_contexts_dir()?;
 
     if !path.exists() {
@@ -399,5 +399,4 @@ fn context_list() -> Result<(), error::Error> {
     }
 
     return Ok(());
-
 }

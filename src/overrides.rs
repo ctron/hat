@@ -25,11 +25,11 @@ impl Overrides {
     }
 }
 
-impl <'a> From<&'a clap::ArgMatches<'a>> for Overrides {
+impl<'a> From<&'a clap::ArgMatches<'a>> for Overrides {
     fn from(matches: &'a clap::ArgMatches) -> Self {
-        Overrides{
-            context: matches.value_of("context-override").map(|s|s.to_string()),
-            tenant: matches.value_of("tenant-override").map(|s|s.to_string()),
+        Overrides {
+            context: matches.value_of("context-override").map(|s| s.to_string()),
+            tenant: matches.value_of("tenant-override").map(|s| s.to_string()),
         }
     }
 }

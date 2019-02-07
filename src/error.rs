@@ -12,7 +12,7 @@
  *******************************************************************************/
 
 use failure::{Backtrace, Context, Fail};
-use std::fmt::{self,Display};
+use std::fmt::{self, Display};
 
 #[derive(Debug)]
 pub struct Error {
@@ -21,58 +21,54 @@ pub struct Error {
 
 #[derive(Clone, Debug, Fail)]
 pub enum ErrorKind {
-
-    #[fail(display="{}", _0)]
+    #[fail(display = "{}", _0)]
     GenericError(String),
 
-    #[fail(display="I/O error: {:?}", _0)]
+    #[fail(display = "I/O error: {:?}", _0)]
     Io(::std::io::ErrorKind),
 
-    #[fail(display="Command Line Error: {:?}", _0)]
+    #[fail(display = "Command Line Error: {:?}", _0)]
     CommandLine(::clap::ErrorKind),
 
-    #[fail(display="Request error: {}", _0)]
+    #[fail(display = "Request error: {}", _0)]
     Request(String),
 
-    #[fail(display="URL format error")]
+    #[fail(display = "URL format error")]
     UrlError,
 
-    #[fail(display="JSON format error: {:?}", _0)]
+    #[fail(display = "JSON format error: {:?}", _0)]
     JsonError(::serde_json::error::Category),
 
-    #[fail(display="YAML format error")]
+    #[fail(display = "YAML format error")]
     YamlError,
 
-    #[fail(display="Invalid UTF-8 string")]
+    #[fail(display = "Invalid UTF-8 string")]
     Utf8Error,
 
     // context errors
-
-    #[fail(display="Context '{}' already exists", _0)]
+    #[fail(display = "Context '{}' already exists", _0)]
     ContextExistsError(String),
-    #[fail(display="Unknown context '{}'", _0)]
+    #[fail(display = "Unknown context '{}'", _0)]
     ContextUnknownError(String),
-    #[fail(display="Invalid context name: {}", _0)]
+    #[fail(display = "Invalid context name: {}", _0)]
     ContextNameError(String),
 
     // API errors
-    #[fail(display="Unsupported operation: Wrong API flavor")]
+    #[fail(display = "Unsupported operation: Wrong API flavor")]
     WrongApiFlavor,
 
     // remote errors
-
-    #[fail(display="Resource not found: {}", _0)]
+    #[fail(display = "Resource not found: {}", _0)]
     NotFound(String),
 
-    #[fail(display="Resource already exists: {}", _0)]
+    #[fail(display = "Resource already exists: {}", _0)]
     AlreadyExists(String),
 
-    #[fail(display="Malformed request")]
+    #[fail(display = "Malformed request")]
     MalformedRequest,
 
-    #[fail(display="Unexpected return code: {}", _0)]
-    UnexpectedResult(http::StatusCode)
-
+    #[fail(display = "Unexpected return code: {}", _0)]
+    UnexpectedResult(http::StatusCode),
 }
 
 impl Fail for Error {
@@ -100,7 +96,9 @@ impl Error {
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
-        Error { inner: Context::new(kind) }
+        Error {
+            inner: Context::new(kind),
+        }
     }
 }
 

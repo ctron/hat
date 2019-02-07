@@ -15,17 +15,16 @@ use colored_json::write_colored_json;
 
 use serde_json::value::Value;
 
+use error;
 use std::io::stdout;
 use std::io::Write;
-use error;
 
 pub fn display_json_value(value: &Value) -> std::result::Result<(), error::Error> {
-
     let mut out = stdout();
 
     {
         let mut out = out.lock();
-        write_colored_json(value, & mut out)?;
+        write_colored_json(value, &mut out)?;
         out.write_all("\n".as_bytes())?;
     }
 

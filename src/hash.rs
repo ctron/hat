@@ -26,7 +26,7 @@ impl std::str::FromStr for HashFunction {
         match s {
             "sha-256" => Ok(HashFunction::Sha256),
             "sha-512" => Ok(HashFunction::Sha512),
-            _ => Err("Invalid value")
+            _ => Err("Invalid value"),
         }
     }
 }
@@ -36,7 +36,8 @@ fn do_hash<D: Digest + Default>(salt: &[u8], password: &str) -> String {
     md.input(salt);
     md.input(password);
     let dig = md.result();
-    base64::encode(&dig)
+
+    return base64::encode(&dig);
 }
 
 impl HashFunction {
@@ -48,11 +49,9 @@ impl HashFunction {
     }
 
     pub fn hash(&self, salt: &[u8], password: &str) -> String {
-
         match self {
             HashFunction::Sha256 => do_hash::<Sha256>(salt, password),
             HashFunction::Sha512 => do_hash::<Sha512>(salt, password),
         }
-
     }
 }

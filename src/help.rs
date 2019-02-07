@@ -14,7 +14,7 @@
 use clap::App;
 use error;
 
-pub fn help(app:& mut App) -> Result<(), error::Error> {
+pub fn help(app: &mut App) -> Result<(), error::Error> {
     app.print_help()?;
     println!();
     Ok(())

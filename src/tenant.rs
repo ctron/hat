@@ -13,12 +13,12 @@
 
 use clap::{App, ArgMatches};
 
-use help::help;
 use context::Context;
+use help::help;
 use reqwest;
 
-use http::method::Method;
 use http::header::*;
+use http::method::Method;
 use http::status::StatusCode;
 
 use serde_json::value::*;
@@ -32,52 +32,52 @@ use overrides::Overrides;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
-static KEY_ENABLED : &'static str = "enabled";
+static KEY_ENABLED: &'static str = "enabled";
 
-pub fn tenant(app: & mut App, matches: &ArgMatches, _overrides: &Overrides, context: &Context) -> Result<()> {
-
+pub fn tenant(
+    app: &mut App,
+    matches: &ArgMatches,
+    _overrides: &Overrides,
+    context: &Context,
+) -> Result<()> {
     let result = match matches.subcommand() {
-        ( "create", Some(cmd_matches)) => tenant_create(
+        ("create", Some(cmd_matches)) => tenant_create(
             context,
             cmd_matches.value_of("tenant_name").unwrap(),
-            cmd_matches.value_of("payload")
+            cmd_matches.value_of("payload"),
         )?,
-        ( "update", Some(cmd_matches)) => tenant_update(
+        ("update", Some(cmd_matches)) => tenant_update(
             context,
             cmd_matches.value_of("tenant_name").unwrap(),
-            cmd_matches.value_of("payload")
+            cmd_matches.value_of("payload"),
         )?,
-        ( "get", Some(cmd_matches)) => tenant_get(
-            context,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
-        ( "delete", Some(cmd_matches)) => tenant_delete(
-            context,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
-        ( "enable", Some(cmd_matches)) => tenant_enable(
-            context,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
-        ( "disable", Some(cmd_matches)) => tenant_disable(
-            context,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
-        _ => help(app)?
+        ("get", Some(cmd_matches)) => {
+            tenant_get(context, cmd_matches.value_of("tenant_name").unwrap())?
+        }
+        ("delete", Some(cmd_matches)) => {
+            tenant_delete(context, cmd_matches.value_of("tenant_name").unwrap())?
+        }
+        ("enable", Some(cmd_matches)) => {
+            tenant_enable(context, cmd_matches.value_of("tenant_name").unwrap())?
+        }
+        ("disable", Some(cmd_matches)) => {
+            tenant_disable(context, cmd_matches.value_of("tenant_name").unwrap())?
+        }
+        _ => help(app)?,
     };
 
     Ok(result)
 }
 
-fn tenant_url(context: &Context, tenant:Option<&str> ) -> Result<url::Url> {
-
+fn tenant_url(context: &Context, tenant: Option<&str>) -> Result<url::Url> {
     let mut url = context.to_url()?;
 
     {
-        let mut path = url.path_segments_mut().map_err(|_| error::ErrorKind::UrlError)?;
+        let mut path = url
+            .path_segments_mut()
+            .map_err(|_| error::ErrorKind::UrlError)?;
 
-        path
-            .push("tenant");
+        path.push("tenant");
 
         tenant.map(|t| path.push(t));
     }
@@ -85,33 +85,33 @@ fn tenant_url(context: &Context, tenant:Option<&str> ) -> Result<url::Url> {
     return Ok(url);
 }
 
-fn tenant_create(context: &Context, tenant:&str, payload:Option<&str>) -> Result<()> {
-
+fn tenant_create(context: &Context, tenant: &str, payload: Option<&str>) -> Result<()> {
     let url = tenant_url(context, None)?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
-        _ => serde_json::value::Map::new()
+        _ => serde_json::value::Map::new(),
     };
 
-    payload.insert("tenant-id".to_string(), serde_json::value::to_value(tenant)?);
+    payload.insert(
+        "tenant-id".to_string(),
+        serde_json::value::to_value(tenant)?,
+    );
 
     let client = reqwest::Client::new();
 
     client
         .request(Method::POST, url)
         .apply_auth(context)
-        .header(CONTENT_TYPE, "application/json" )
+        .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .send()
         .map_err(error::Error::from)
-        .and_then(|response|{
-            match response.status() {
-                StatusCode::CREATED => Ok(response),
-                StatusCode::CONFLICT => Err(AlreadyExists(tenant.to_string()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
-                _ => Err(UnexpectedResult(response.status()).into())
-            }
+        .and_then(|response| match response.status() {
+            StatusCode::CREATED => Ok(response),
+            StatusCode::CONFLICT => Err(AlreadyExists(tenant.to_string()).into()),
+            StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
+            _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
     println!("Created tenant: {}", tenant);
@@ -119,33 +119,33 @@ fn tenant_create(context: &Context, tenant:&str, payload:Option<&str>) -> Result
     return Ok(());
 }
 
-fn tenant_update(context: &Context, tenant:&str, payload:Option<&str>) -> Result<()> {
-
+fn tenant_update(context: &Context, tenant: &str, payload: Option<&str>) -> Result<()> {
     let url = tenant_url(context, Some(tenant))?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
-        _ => serde_json::value::Map::new()
+        _ => serde_json::value::Map::new(),
     };
 
-    payload.insert("tenant-id".to_string(), serde_json::value::to_value(tenant)?);
+    payload.insert(
+        "tenant-id".to_string(),
+        serde_json::value::to_value(tenant)?,
+    );
 
     let client = reqwest::Client::new();
 
     client
         .request(Method::PUT, url)
         .apply_auth(context)
-        .header(CONTENT_TYPE, "application/json" )
+        .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .send()
         .map_err(error::Error::from)
-        .and_then(|response|{
-            match response.status() {
-                StatusCode::NO_CONTENT => Ok(response),
-                StatusCode::NOT_FOUND => Err(NotFound(tenant.to_string()).into()),
-                StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
-                _ => Err(UnexpectedResult(response.status()).into())
-            }
+        .and_then(|response| match response.status() {
+            StatusCode::NO_CONTENT => Ok(response),
+            StatusCode::NOT_FOUND => Err(NotFound(tenant.to_string()).into()),
+            StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
+            _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
     println!("Updated tenant: {}", tenant);
@@ -153,13 +153,12 @@ fn tenant_update(context: &Context, tenant:&str, payload:Option<&str>) -> Result
     return Ok(());
 }
 
-fn tenant_delete(context: &Context, tenant:&str) -> Result<()> {
+fn tenant_delete(context: &Context, tenant: &str) -> Result<()> {
     let url = tenant_url(context, Some(tenant))?;
     resource_delete(&context, &url, "Tenant", tenant)
 }
 
-fn tenant_enable(context: &Context, tenant:&str) -> Result<()> {
-
+fn tenant_enable(context: &Context, tenant: &str) -> Result<()> {
     let url = tenant_url(context, Some(tenant))?;
 
     resource_modify(&context, &url, &url, tenant, |payload| {
@@ -172,8 +171,7 @@ fn tenant_enable(context: &Context, tenant:&str) -> Result<()> {
     return Ok(());
 }
 
-fn tenant_disable(context: &Context, tenant:&str) -> Result<()> {
-
+fn tenant_disable(context: &Context, tenant: &str) -> Result<()> {
     let url = tenant_url(context, Some(tenant))?;
 
     resource_modify(&context, &url, &url, tenant, |payload| {
@@ -186,7 +184,7 @@ fn tenant_disable(context: &Context, tenant:&str) -> Result<()> {
     return Ok(());
 }
 
-fn tenant_get(context: &Context, tenant:&str) -> Result<()> {
+fn tenant_get(context: &Context, tenant: &str) -> Result<()> {
     let url = tenant_url(context, Some(tenant))?;
     resource_get(&context, &url, "Tenant")
 }
