@@ -24,6 +24,7 @@ matrix:
         - if test -n "$TRAVIS_TAG"; then ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-macos-64bit.tar.gz hat ); fi
     - os: windows
       before_install:
+        - find /c/ -name "*.msm"
         - choco install nuget.commandline
         - nuget install WiX -version 3.11.1
       script:
