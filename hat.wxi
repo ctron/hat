@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Include>
+
+    <?define ProductName = "Hono Admin Tool" ?>
+
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+    <?define ProductUpgradeCode = "1b4094a4-2add-11e9-b676-c85b762e5a2c" ?>
+
+</Include>

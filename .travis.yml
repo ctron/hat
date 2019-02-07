@@ -27,6 +27,8 @@ matrix:
         - choco install nuget.commandline
         - nuget install WiX
       after_success:
+        - candle -arch x64 hat.wxs
+        - light hat.wixobj -o hat-${TRAVIS_TAG:-untagged}-x64.msi
         - if test -n "$TRAVIS_TAG"; then 7z a -tzip hono-admin-tool-${TRAVIS_TAG}-windows-64bit.zip ./target/release/hat.exe; fi
 
 deploy:
