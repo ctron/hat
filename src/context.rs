@@ -210,7 +210,7 @@ fn limit_access(file: &mut File) -> Result<(), error::Error> {
 }
 
 #[cfg(not(unix))]
-fn limit_access(file: &mut File) -> Result<(), error::Error> {
+fn limit_access(_file: &mut File) -> Result<(), error::Error> {
     Ok(())
 }
 
