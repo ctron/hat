@@ -8,7 +8,7 @@
              Id='f8d77942-2adb-11e9-9eba-c85b762e5a2c'
              UpgradeCode='fe1d0bba-2adb-11e9-aca7-c85b762e5a2c'
              Language='1033' Codepage='1252'
-             Version='0.4.2'>
+             Version='$(var.Version)'>
 
         <Package Id='*'
                  Keywords='Installer'
@@ -22,18 +22,16 @@
 
         <MajorUpgrade  AllowDowngrades="yes"/>
 
-        <Fragment>
-            <Directory Id="TARGETDIR" Name="SourceDir">
-                <Directory Id="$(var.PlatformProgramFilesFolder)" Name="PFiles">
-                    <Directory Id="INSTALLDIR" Name="$(var.ProductName)">
-                        <Component Id="MainComponent" Guid="78d3b722-2add-11e9-a113-c85b762e5a2c" DiskId="1">
-                            <File Id="MainExe" Name="hat.exe" DiskId="1" Source="target/release/hat.exe" KeyPath="yes"/>
-                            <Environment Id="PATH" Name="PATH" Value="[INSTALLDIR]" Permanent="yes" Part="last" Action="set" System="yes" />
-                        </Component>
-                    </Directory>
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="$(var.PlatformProgramFilesFolder)" Name="PFiles">
+                <Directory Id="INSTALLDIR" Name="$(var.ProductName)">
+                    <Component Id="MainComponent" Guid="78d3b722-2add-11e9-a113-c85b762e5a2c" DiskId="1">
+                        <File Id="MainExe" Name="hat.exe" DiskId="1" Source="target/release/hat.exe" KeyPath="yes"/>
+                        <Environment Id="PATH" Name="PATH" Value="[INSTALLDIR]" Permanent="yes" Part="last" Action="set" System="yes" />
+                    </Component>
                 </Directory>
             </Directory>
-        </Fragment>
+        </Directory>
 
         <Feature Id="Complete"
                  Title="$(var.ProductName)"
