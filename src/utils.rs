@@ -12,11 +12,17 @@
  *******************************************************************************/
 
 pub trait Either {
-    fn either<T>(&self, this:T, that:T) -> T;
+    fn either<T>(&self, this: T, that: T) -> T;
 }
 
 impl Either for bool {
-    fn either<T>(&self, this:T, that:T) -> T  {
-        if *self { this } else { that }
+    /// transforms the bool in a value of either the first (when true) or the second (when false)
+    /// parameter.
+    fn either<T>(&self, whenTrue: T, whenFalse: T) -> T {
+        if *self {
+            whenTrue
+        } else {
+            whenFalse
+        }
     }
 }
