@@ -5,7 +5,7 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product Name='$(var.ProductName)'
              Manufacturer='Jens Reimann'
-             Id='f8d77942-2adb-11e9-9eba-c85b762e5a2c'
+             Id='*'
              UpgradeCode='fe1d0bba-2adb-11e9-aca7-c85b762e5a2c'
              Language='1033' Codepage='1252'
              Version='$(var.Version)'>
@@ -20,7 +20,8 @@
 
         <Media Id="1" Cabinet="contents.cab" EmbedCab="yes" CompressionLevel="high"/>
 
-        <MajorUpgrade  AllowDowngrades="yes"/>
+        <MajorUpgrade
+                DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit."/>
 
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="$(var.PlatformProgramFilesFolder)" Name="PFiles">
