@@ -27,6 +27,7 @@ use error::ErrorKind::*;
 use utils::Either;
 
 use overrides::Overrides;
+use resource::Tracer;
 use resource::{resource_delete, resource_get, resource_modify, resource_url, AuthExt};
 
 type Result<T> = std::result::Result<T, error::Error>;
@@ -101,6 +102,7 @@ fn registration_create(
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
+        .trace()
         .send()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
@@ -141,6 +143,7 @@ fn registration_update(
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
+        .trace()
         .send()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {

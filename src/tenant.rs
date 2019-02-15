@@ -29,6 +29,7 @@ use error::ErrorKind::*;
 use resource::{resource_delete, resource_get, resource_modify, AuthExt};
 
 use overrides::Overrides;
+use resource::Tracer;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -105,6 +106,7 @@ fn tenant_create(context: &Context, tenant: &str, payload: Option<&str>) -> Resu
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
+        .trace()
         .send()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
@@ -139,6 +141,7 @@ fn tenant_update(context: &Context, tenant: &str, payload: Option<&str>) -> Resu
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
+        .trace()
         .send()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
