@@ -20,20 +20,20 @@ use std::os::unix::fs::PermissionsExt;
 use url::percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
 use url::Url;
 
+use crate::help::help;
 use clap::{App, ArgMatches};
-use help::help;
 
 use std::str::Utf8Error;
 
 use std::io::prelude::*;
 use std::path::*;
 
-use error;
-use error::ErrorKind;
+use crate::error;
+use crate::error::ErrorKind;
 
 use std::fmt;
 
-use overrides::Overrides;
+use crate::Overrides;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ApiFlavor {
@@ -196,8 +196,10 @@ pub fn context_load_current(overrides: Option<&Overrides>) -> Result<Context, er
             ErrorKind::GenericError(
                 "No context selected. Create a first context or select an existing one."
                     .to_string(),
-            ).into()
-        }).and_then(|current| context_load(current.as_str()))
+            )
+            .into()
+        })
+        .and_then(|current| context_load(current.as_str()))
 }
 
 #[cfg(unix)]

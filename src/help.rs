@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
+use crate::error;
 use clap::App;
-use error;
 
 pub fn help(app: &mut App) -> Result<(), error::Error> {
     app.print_help()?;

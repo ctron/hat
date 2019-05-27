@@ -13,22 +13,22 @@
 
 use clap::{App, ArgMatches};
 
-use context::Context;
-use help::help;
+use crate::context::Context;
+use crate::help::help;
 use reqwest;
 
 use http::header::CONTENT_TYPE;
 use http::method::Method;
 use http::status::StatusCode;
 
-use error;
-use error::ErrorKind::*;
+use crate::error;
+use crate::error::ErrorKind::*;
 
-use utils::Either;
+use crate::utils::Either;
 
-use overrides::Overrides;
-use resource::Tracer;
-use resource::{resource_delete, resource_get, resource_modify, resource_url, AuthExt};
+use crate::overrides::Overrides;
+use crate::resource::Tracer;
+use crate::resource::{resource_delete, resource_get, resource_modify, resource_url, AuthExt};
 
 type Result<T> = std::result::Result<T, error::Error>;
 static RESOURCE_NAME: &str = "registration";

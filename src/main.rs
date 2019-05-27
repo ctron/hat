@@ -24,10 +24,9 @@ extern crate serde;
 extern crate serde_json;
 extern crate serde_yaml;
 
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
 extern crate dirs;
+extern crate failure;
+extern crate failure_derive;
 extern crate url;
 
 extern crate http;
@@ -148,7 +147,8 @@ fn app() -> App<'static, 'static> {
                 .short("v")
                 .long("verbose")
                 .multiple(true),
-        ).arg(args_override_tenant.clone())
+        )
+        .arg(args_override_tenant.clone())
         .arg(args_override_context.clone())
         .subcommand(
             SubCommand::with_name("context")
@@ -163,7 +163,8 @@ fn app() -> App<'static, 'static> {
                         .arg(args_ctx_password.clone())
                         .arg(args_ctx_default_tenant.clone())
                         .arg(args_ctx_api_flavor.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("update")
                         .about("Update an existing context")
                         .arg(args_ctx.clone())
@@ -172,23 +173,28 @@ fn app() -> App<'static, 'static> {
                                 .long("url")
                                 .help("The new url to set")
                                 .takes_value(true),
-                        ).arg(args_ctx_username.clone())
+                        )
+                        .arg(args_ctx_username.clone())
                         .arg(args_ctx_password.clone())
                         .arg(args_ctx_default_tenant.clone())
                         .arg(args_ctx_api_flavor.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("delete")
                         .about("Delete a context")
                         .arg(args_ctx.clone()),
-                ).subcommand(SubCommand::with_name("list").about("List existing contexts"))
+                )
+                .subcommand(SubCommand::with_name("list").about("List existing contexts"))
                 .subcommand(
                     SubCommand::with_name("switch")
                         .about("Switch to existing context")
                         .arg(args_ctx.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("show").about("Show current context information"),
                 ),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("tenant")
                 .about("Work with tenants")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -197,29 +203,35 @@ fn app() -> App<'static, 'static> {
                         .about("Create a new tenant")
                         .arg(args_tenant_name.clone())
                         .arg(args_tenant_payload.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("update")
                         .about("Update an existing tenant")
                         .arg(args_tenant_name.clone())
                         .arg(args_tenant_payload.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("get")
                         .about("Get tenant information")
                         .arg(args_tenant_name.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("delete")
                         .about("Delete an existing tenant")
                         .arg(args_tenant_name.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("enable")
                         .about("Enable an existing tenant")
                         .arg(args_tenant_name.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("disable")
                         .about("Disable an existing tenant")
                         .arg(args_tenant_name.clone()),
                 ),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("reg")
                 .about("Work with registrations")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -229,29 +241,35 @@ fn app() -> App<'static, 'static> {
                         .about("Register a new device")
                         .arg(args_device.clone())
                         .arg(args_device_payload.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("get")
                         .about("Get a device")
                         .arg(args_device.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("update")
                         .about("Update an existing device registration")
                         .arg(args_device.clone())
                         .arg(args_device_payload.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("delete")
                         .about("Delete a device registration")
                         .arg(args_device.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("enable")
                         .about("Enable a device registration")
                         .arg(args_device.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("disable")
                         .about("Disable a device registration")
                         .arg(args_device.clone()),
                 ),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("cred")
                 .about("Work with device credentials")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -263,41 +281,49 @@ fn app() -> App<'static, 'static> {
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_type.clone())
                         .arg(args_credentials_payload.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("update")
                         .about("Update an existing credentials set")
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_type.clone())
                         .arg(args_credentials_payload.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("get")
                         .about("Get all credentials for an existing device")
                         .arg(args_device.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("get-for")
                         .about("Get all credentials by auth ID and type")
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_type.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("delete")
                         .about("Delete all credentials for an existing device")
                         .arg(args_device.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("delete-for")
                         .about("Delete all credentials by auth ID and type")
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_type.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("enable")
                         .about("Enable a set of credentials")
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_type.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("disable")
                         .about("Disable a set of credentials")
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_type.clone()),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("add-password")
                         .about("Add password secret for an existing credentials set")
                         .arg(args_credentials_auth_id.clone())
@@ -306,22 +332,26 @@ fn app() -> App<'static, 'static> {
                                 .required(true)
                                 .help("Password hash function")
                                 .possible_values(&hash_functions),
-                        ).arg(
+                        )
+                        .arg(
                             Arg::with_name("password")
                                 .required(true)
                                 .help("The plaintext password"),
-                        ).arg(
+                        )
+                        .arg(
                             Arg::with_name("device")
                                 .help("Create credentials set for device if necessary")
                                 .long("device")
                                 .takes_value(true)
                                 .max_values(1),
-                        ).arg(
+                        )
+                        .arg(
                             Arg::with_name("no-salt")
                                 .help("Disable the use of a salt - not recommended")
                                 .long("--no-salt"),
                         ),
-                ).subcommand(
+                )
+                .subcommand(
                     SubCommand::with_name("set-password")
                         .about("Set password as the only secret to an existing credentials set")
                         .arg(args_credentials_auth_id.clone())
@@ -330,17 +360,20 @@ fn app() -> App<'static, 'static> {
                                 .required(true)
                                 .help("Password hash function")
                                 .possible_values(&hash_functions),
-                        ).arg(
+                        )
+                        .arg(
                             Arg::with_name("password")
                                 .required(true)
                                 .help("The plaintext password"),
-                        ).arg(
+                        )
+                        .arg(
                             Arg::with_name("device")
                                 .help("Create credentials set for device if necessary")
                                 .long("device")
                                 .takes_value(true)
                                 .max_values(1),
-                        ).arg(
+                        )
+                        .arg(
                             Arg::with_name("no-salt")
                                 .help("Disable the use of a salt - not recommended")
                                 .long("--no-salt"),

@@ -15,7 +15,7 @@ use colored_json::write_colored_json;
 
 use serde_json::value::Value;
 
-use error;
+use crate::error;
 use std::io::stdout;
 use std::io::Write;
 

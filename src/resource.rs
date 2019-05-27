@@ -20,14 +20,14 @@ use http::header::CONTENT_TYPE;
 use http::Method;
 use http::StatusCode;
 
-use error;
-use error::ErrorKind::{MalformedRequest, NotFound, UnexpectedResult};
+use crate::error::ErrorKind::{MalformedRequest, NotFound, UnexpectedResult};
 
-use context::Context;
+use crate::context::Context;
+use crate::error;
 
 use serde_json::{Map, Value};
 
-use output::display_json_value;
+use crate::output::display_json_value;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -129,7 +129,8 @@ pub fn resource_get(context: &Context, url: &url::Url, resource_type: &str) -> R
             StatusCode::OK => Ok(response),
             StatusCode::NOT_FOUND => Err(NotFound(resource_type.to_string()).into()),
             _ => Err(UnexpectedResult(response.status()).into()),
-        })?.json()?;
+        })?
+        .json()?;
 
     display_json_value(&result)?;
 

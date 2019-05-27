@@ -13,8 +13,8 @@
 
 use clap::{App, ArgMatches};
 
-use context::Context;
-use help::help;
+use crate::context::Context;
+use crate::help::help;
 use reqwest;
 
 use http::header::*;
@@ -23,13 +23,13 @@ use http::status::StatusCode;
 
 use serde_json::value::*;
 
-use error;
-use error::ErrorKind::*;
+use crate::error;
+use crate::error::ErrorKind::*;
 
-use resource::{resource_delete, resource_get, resource_modify, AuthExt};
+use crate::resource::{resource_delete, resource_get, resource_modify, AuthExt};
 
-use overrides::Overrides;
-use resource::Tracer;
+use crate::overrides::Overrides;
+use crate::resource::Tracer;
 
 type Result<T> = std::result::Result<T, error::Error>;
 

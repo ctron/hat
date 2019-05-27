@@ -13,12 +13,12 @@
 
 use clap::{App, ArgMatches};
 
-use help::help;
+use crate::help::help;
 
 use std::collections::HashMap;
 
-use context::ApiFlavor::BoschIoTHub;
-use context::{ApiFlavor, Context};
+use crate::context::ApiFlavor::BoschIoTHub;
+use crate::context::{ApiFlavor, Context};
 
 use reqwest;
 
@@ -26,12 +26,12 @@ use http::header::*;
 use http::method::Method;
 use http::status::StatusCode;
 
-use error;
-use error::ErrorKind::*;
+use crate::error;
+use crate::error::ErrorKind::*;
 
-use hash::HashFunction;
+use crate::hash::HashFunction;
 
-use resource::{
+use crate::resource::{
     resource_delete, resource_get, resource_modify, resource_url, resource_url_query, AuthExt,
     Tracer,
 };
@@ -40,9 +40,9 @@ use serde_json::value::{Map, Value};
 
 use rand::{EntropyRng, RngCore};
 
-use overrides::Overrides;
+use crate::overrides::Overrides;
 
-use utils::Either;
+use crate::utils::Either;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -378,7 +378,8 @@ fn credentials_add_password(
 
             Ok(())
         },
-    ).and(Ok(()))
+    )
+    .and(Ok(()))
     .or_else(|err| {
         if !device.is_some() {
             return Err(err);

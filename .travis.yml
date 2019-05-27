@@ -1,6 +1,6 @@
 language: rust
 rust:
-  - 1.30.0
+  - 1.35.0
 
 script:
   - cargo test --verbose
