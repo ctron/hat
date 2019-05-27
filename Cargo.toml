@@ -9,7 +9,7 @@ name = "hat"
 path = "src/main.rs"
 
 [dependencies]
-clap = "2.32"
+clap = "2.33"
 log = "0.4"
 simplelog = "0.5"
 
@@ -23,7 +23,7 @@ failure = "0.1"
 
 url = "1.7"
 
-dirs = "1.0"
+dirs = "2"
 
 reqwest = "0.9"
 hyper = "0.12"
@@ -33,9 +33,8 @@ http = "0.1"
 
 base64 = "0.10"
 
-rand = "0.5"
+rand = "0.6"
 
 sha2 = "0.8"
 
-colored = "1.6"
 colored_json = "1.0"

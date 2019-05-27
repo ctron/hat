@@ -38,7 +38,8 @@ use crate::resource::{
 
 use serde_json::value::{Map, Value};
 
-use rand::{EntropyRng, RngCore};
+use rand::rngs::EntropyRng;
+use rand::RngCore;
 
 use crate::overrides::Overrides;
 
