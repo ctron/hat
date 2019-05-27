@@ -16,31 +16,9 @@ extern crate clap;
 
 #[macro_use]
 extern crate log;
-extern crate simplelog;
 
 #[macro_use]
 extern crate serde_derive;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-
-extern crate dirs;
-extern crate failure;
-extern crate failure_derive;
-extern crate url;
-
-extern crate http;
-extern crate reqwest;
-
-extern crate hyper;
-
-extern crate base64;
-extern crate rand;
-
-extern crate sha2;
-
-extern crate colored;
-extern crate colored_json;
 
 use clap::{App, AppSettings, Arg, SubCommand};
 use overrides::Overrides;
