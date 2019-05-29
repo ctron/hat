@@ -108,6 +108,22 @@ impl Context {
             None => &ApiFlavor::EclipseHonoV1,
         }
     }
+
+    // Tests if the context supports the requested API versions
+    pub fn api_required(&self, apis: &[&ApiFlavor]) -> Result<(), error::Error> {
+        let our = self.api_flavor();
+
+        for api in apis {
+            if *api == our {
+                // found ... OK
+                return Ok(());
+            }
+        }
+
+        // not found .. Err
+        let msg = format!("Operation not supported by API: {}", our);
+        return Err(ErrorKind::GenericError(msg).into());
+    }
 }
 
 pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> {
