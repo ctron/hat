@@ -27,12 +27,12 @@ use std::result::Result;
 
 mod context;
 mod credentials;
+mod devices;
 mod error;
 mod hash;
 mod help;
 mod output;
 mod overrides;
-mod registration;
 mod resource;
 mod tenant;
 mod utils;
@@ -66,7 +66,7 @@ fn app() -> App<'static, 'static> {
         .help("Set the API flavor")
         .long("api-flavor")
         .alias("api-flavour")
-        .possible_values(&["hono", "iothub"])
+        .possible_values(&["hono-v1", "hono", "iothub"])
         .takes_value(true);
 
     // tenant
@@ -74,6 +74,9 @@ fn app() -> App<'static, 'static> {
     let args_tenant_name = Arg::with_name("tenant_name")
         .help("Tenant name")
         .required(true);
+    let args_tenant_name_optional = Arg::with_name("tenant_name")
+        .help("Tenant name")
+        .required(false);
     let args_tenant_payload = Arg::with_name("payload").help("Tenant payload");
 
     // device
@@ -81,6 +84,9 @@ fn app() -> App<'static, 'static> {
     let args_device = Arg::with_name("device")
         .help("ID of the device")
         .required(true);
+    let args_device_optional = Arg::with_name("device")
+        .help("ID of the device")
+        .required(false);
     let args_device_payload = Arg::with_name("payload").help("Device payload");
 
     // credentials
@@ -164,6 +170,9 @@ fn app() -> App<'static, 'static> {
                 )
                 .subcommand(SubCommand::with_name("list").about("List existing contexts"))
                 .subcommand(
+                    SubCommand::with_name("current").about("Print current selected context"),
+                )
+                .subcommand(
                     SubCommand::with_name("switch")
                         .about("Switch to existing context")
                         .arg(args_ctx.clone()),
@@ -179,7 +188,7 @@ fn app() -> App<'static, 'static> {
                 .subcommand(
                     SubCommand::with_name("create")
                         .about("Create a new tenant")
-                        .arg(args_tenant_name.clone())
+                        .arg(args_tenant_name_optional.clone())
                         .arg(args_tenant_payload.clone()),
                 )
                 .subcommand(
@@ -210,14 +219,14 @@ fn app() -> App<'static, 'static> {
                 ),
         )
         .subcommand(
-            SubCommand::with_name("reg")
-                .about("Work with registrations")
+            SubCommand::with_name("device")
+                .about("Work with devices")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 // .arg(args_tenant.clone())
                 .subcommand(
                     SubCommand::with_name("create")
                         .about("Register a new device")
-                        .arg(args_device.clone())
+                        .arg(args_device_optional.clone())
                         .arg(args_device_payload.clone()),
                 )
                 .subcommand(
@@ -396,7 +405,7 @@ fn run() -> Result<(), failure::Error> {
 
     match cmd_name {
         "tenant" => tenant::tenant(&mut app, cmd.unwrap(), &overrides, &context)?,
-        "reg" => registration::registration(&mut app, cmd.unwrap(), &overrides, &context)?,
+        "device" => devices::registration(&mut app, cmd.unwrap(), &overrides, &context)?,
         "cred" => credentials::credentials(&mut app, cmd.unwrap(), &overrides, &context)?,
         _ => help::help(&mut app)?,
     };

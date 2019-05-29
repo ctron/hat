@@ -33,6 +33,9 @@ pub enum ErrorKind {
     #[fail(display = "Request error: {}", _0)]
     Request(String),
 
+    #[fail(display = "Response error: {}", _0)]
+    Response(String),
+
     #[fail(display = "URL format error")]
     UrlError,
 
@@ -111,6 +114,13 @@ impl From<Context<ErrorKind>> for Error {
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Error {
         let msg = format!("{}", err);
+        err.context(ErrorKind::Request(msg)).into()
+    }
+}
+
+impl From<http::header::ToStrError> for Error {
+    fn from(err: http::header::ToStrError) -> Error {
+        let msg = err.to_string();
         err.context(ErrorKind::Request(msg)).into()
     }
 }

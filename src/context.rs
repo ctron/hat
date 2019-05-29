@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 Red Hat Inc
+ * Copyright (c) 2018, 2019 Red Hat Inc
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -35,16 +35,21 @@ use std::fmt;
 
 use crate::Overrides;
 
+use ansi_term::Style;
+use colored_json::*;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ApiFlavor {
-    EclipseHono,
+    EclipseHonoV1,
+    EclipseHonoLegacy,
     BoschIoTHub,
 }
 
 impl fmt::Display for ApiFlavor {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ApiFlavor::EclipseHono => write!(f, "Eclipse Hono"),
+            ApiFlavor::EclipseHonoV1 => write!(f, "Eclipse Hono V1"),
+            ApiFlavor::EclipseHonoLegacy => write!(f, "Eclipse Hono (legacy)"),
             ApiFlavor::BoschIoTHub => write!(f, "Bosch IoT Hub"),
         }
     }
@@ -55,8 +60,9 @@ impl std::str::FromStr for ApiFlavor {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Eclipse Hono" | "EclipseHono" | "hono" => Ok(ApiFlavor::EclipseHono),
-            "Bosch IoT Hub" | "BoschIoTHub" | "bosch" | "iothub" => Ok(ApiFlavor::BoschIoTHub),
+            "EclipseHonoV1" | "hono-v1" | "hono" => Ok(ApiFlavor::EclipseHonoV1),
+            "EclipseHono" | "EclipseHonoLegacy" | "hono-legacy" => Ok(ApiFlavor::EclipseHonoLegacy),
+            "BoschIoTHub" | "bosch" | "iothub" => Ok(ApiFlavor::BoschIoTHub),
             _ => Err("Invalid value"),
         }
     }
@@ -99,7 +105,7 @@ impl Context {
     pub fn api_flavor(&self) -> &ApiFlavor {
         match self.api_flavor {
             Some(ref v) => v,
-            None => &ApiFlavor::EclipseHono,
+            None => &ApiFlavor::EclipseHonoV1,
         }
     }
 }
@@ -126,6 +132,7 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
         ("delete", Some(cmd_matches)) => context_delete(cmd_matches.value_of("context").unwrap()),
         ("list", Some(_)) => context_list(),
         ("show", Some(_)) => context_show(),
+        ("current", Some(_)) => context_current(),
         _ => help(app),
     }
 }
@@ -365,6 +372,11 @@ fn context_show() -> Result<(), error::Error> {
 
     println!("Current context: {}", context.unwrap());
     println!("            URL: {}", ctx.url);
+    if ctx.api_flavor.is_some() {
+        println!("       API type: {}", ctx.api_flavor.unwrap());
+    } else {
+        println!("       API type: <none>");
+    }
     println!(
         "       Username: {}",
         ctx.username.unwrap_or(String::from("<none>"))
@@ -391,14 +403,25 @@ fn context_list() -> Result<(), error::Error> {
 
     let current = context_get_current()?;
 
+    let active = Style::new().bold().fg(Color::Green);
+
     for entry in path.read_dir()? {
         let name = context_decode_file_name(entry?.file_name().to_str().unwrap())?;
-        print!("{}", name);
-        if current == Some(name) {
-            print!(" *");
+
+        if current == Some(name.clone()) && ColorMode::Auto(Output::StdOut).use_color() {
+            println!("{} *", active.paint(name));
+        } else {
+            println!("{}", name);
         }
-        println!();
     }
 
     return Ok(());
+}
+
+fn context_current() -> Result<(), error::Error> {
+    let current = context_get_current()?;
+    if let Some(current) = current {
+        println!("{}", current);
+    }
+    Ok(())
 }

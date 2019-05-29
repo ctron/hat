@@ -16,11 +16,11 @@ use url::Url;
 
 use std::collections::HashMap;
 
-use http::header::CONTENT_TYPE;
+use http::header::{CONTENT_TYPE, ETAG, IF_MATCH, LOCATION};
 use http::Method;
 use http::StatusCode;
 
-use crate::error::ErrorKind::{MalformedRequest, NotFound, UnexpectedResult};
+use crate::error::ErrorKind::{MalformedRequest, NotFound, Response, UnexpectedResult};
 
 use crate::context::Context;
 use crate::error;
@@ -45,6 +45,20 @@ impl AuthExt for reqwest::RequestBuilder {
     }
 }
 
+pub trait IfMatch {
+    fn if_match(self, value: &Option<&http::header::HeaderValue>) -> Self;
+}
+
+impl IfMatch for reqwest::RequestBuilder {
+    fn if_match(self, value: &Option<&http::header::HeaderValue>) -> Self {
+        if let Some(etag) = value {
+            self.header(IF_MATCH, etag.clone())
+        } else {
+            self
+        }
+    }
+}
+
 pub trait Tracer {
     fn trace(self) -> Self;
 }
@@ -56,36 +70,56 @@ impl Tracer for reqwest::RequestBuilder {
     }
 }
 
-pub fn resource_url<S: ToString + Sized>(
-    context: &Context,
-    resource: &str,
-    segments: &[&S],
-) -> Result<url::Url> {
+impl Tracer for std::result::Result<reqwest::Response, reqwest::Error> {
+    fn trace(self) -> Self {
+        info!("{:#?}", self);
+        self
+    }
+}
+
+pub fn resource_url<S>(context: &Context, resource: &str, segments: S) -> Result<url::Url>
+where
+    S: IntoIterator,
+    S::Item: AsRef<str>,
+{
     resource_url_query(context, resource, segments, None)
 }
 
-pub fn resource_url_query<S: ToString + Sized>(
-    context: &Context,
-    resource: &str,
-    segments: &[&S],
-    query: Option<&HashMap<String, String>>,
-) -> Result<url::Url> {
-    let mut url = context.to_url()?;
-
+pub fn resource_append_path<S>(url: url::Url, segments: S) -> Result<url::Url>
+where
+    S: IntoIterator,
+    S::Item: AsRef<str>,
+{
+    let mut url = url.clone();
     {
         let mut path = url
             .path_segments_mut()
             .map_err(|_| error::ErrorKind::UrlError)?;
-        path.push(resource);
 
-        for seg in segments {
-            path.push(seg.to_string().as_str());
-        }
+        path.extend(segments);
     }
 
+    return Ok(url);
+}
+
+pub fn resource_url_query<S>(
+    context: &Context,
+    resource: &str,
+    segments: S,
+    query: Option<&HashMap<String, String>>,
+) -> Result<url::Url>
+where
+    S: IntoIterator,
+    S::Item: AsRef<str>,
+{
+    let url = context.to_url()?;
+    let url = resource_append_path(url, Some(resource))?;
+    let mut url = resource_append_path(url, segments)?;
+
     if let Some(q) = query {
+        let mut query = url.query_pairs_mut();
         for (name, value) in q {
-            url.query_pairs_mut().append_pair(name, value);
+            query.append_pair(name, value);
         }
     }
 
@@ -103,7 +137,9 @@ pub fn resource_delete(
     client
         .request(Method::DELETE, url.clone())
         .apply_auth(context)
+        .trace()
         .send()
+        .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
@@ -124,6 +160,7 @@ pub fn resource_get(context: &Context, url: &url::Url, resource_type: &str) -> R
         .apply_auth(context)
         .trace()
         .send()
+        .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
             StatusCode::OK => Ok(response),
@@ -153,21 +190,31 @@ where
 
     // get
 
-    let mut payload: Map<String, Value> = client
+    let mut response = client
         .request(Method::GET, read_url.clone())
         .apply_auth(context)
         .trace()
         .send()
-        .map_err(error::Error::from)
-        .and_then(|mut response| match response.status() {
-            StatusCode::OK => response.json().map_err(error::Error::from),
-            StatusCode::NOT_FOUND => creator(),
-            _ => Err(UnexpectedResult(response.status()).into()),
-        })?;
+        .trace()
+        .map_err(error::Error::from)?;
+
+    let mut payload: Map<String, Value> = match response.status() {
+        StatusCode::OK => response.json().map_err(error::Error::from),
+        StatusCode::NOT_FOUND => creator(),
+        _ => Err(UnexpectedResult(response.status()).into()),
+    }?;
+
+    debug!("GET Payload: {:?}", payload);
 
     // call consumer
 
     modifier(&mut payload)?;
+
+    debug!("PUT Payload: {:?}", payload);
+
+    // retrieve ETag header
+
+    let etag = response.headers().get(ETAG);
 
     // update
 
@@ -175,9 +222,11 @@ where
         .request(Method::PUT, update_url.clone())
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
+        .if_match(&etag)
         .json(&payload)
         .trace()
         .send()
+        .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
@@ -205,4 +254,20 @@ where
         || Err(NotFound(resource_name.into()).into()),
         modifier,
     )
+}
+
+pub fn resource_id_from_location(response: reqwest::Response) -> Result<String> {
+    let loc = response.headers().get(LOCATION).clone();
+
+    if let Some(s) = loc {
+        let id: String = s.to_str()?.into();
+
+        let s = id.split("/").last();
+
+        return s
+            .map(|s| s.into())
+            .ok_or(Response(String::from("Missing ID element in 'Location' header")).into());
+    } else {
+        return Err(Response(String::from("Missing 'Location' header in response")).into());
+    }
 }

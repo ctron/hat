@@ -26,7 +26,10 @@ use serde_json::value::*;
 use crate::error;
 use crate::error::ErrorKind::*;
 
-use crate::resource::{resource_delete, resource_get, resource_modify, AuthExt};
+use crate::resource::{
+    resource_delete, resource_get, resource_id_from_location, resource_modify, resource_url,
+    AuthExt,
+};
 
 use crate::overrides::Overrides;
 use crate::resource::Tracer;
@@ -34,6 +37,7 @@ use crate::resource::Tracer;
 type Result<T> = std::result::Result<T, error::Error>;
 
 static KEY_ENABLED: &'static str = "enabled";
+static RESOURCE_NAME: &str = "devices";
 
 pub fn tenant(
     app: &mut App,
@@ -44,7 +48,7 @@ pub fn tenant(
     let result = match matches.subcommand() {
         ("create", Some(cmd_matches)) => tenant_create(
             context,
-            cmd_matches.value_of("tenant_name").unwrap(),
+            cmd_matches.value_of("tenant_name"),
             cmd_matches.value_of("payload"),
         )?,
         ("update", Some(cmd_matches)) => tenant_update(
@@ -70,51 +74,32 @@ pub fn tenant(
     Ok(result)
 }
 
-fn tenant_url(context: &Context, tenant: Option<&str>) -> Result<url::Url> {
-    let mut url = context.to_url()?;
+fn tenant_create(context: &Context, tenant: Option<&str>, payload: Option<&str>) -> Result<()> {
+    let url = resource_url(context, RESOURCE_NAME, tenant)?;
 
-    {
-        let mut path = url
-            .path_segments_mut()
-            .map_err(|_| error::ErrorKind::UrlError)?;
-
-        path.push("tenant");
-
-        tenant.map(|t| path.push(t));
-    }
-
-    return Ok(url);
-}
-
-fn tenant_create(context: &Context, tenant: &str, payload: Option<&str>) -> Result<()> {
-    let url = tenant_url(context, None)?;
-
-    let mut payload = match payload {
+    let payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
         _ => serde_json::value::Map::new(),
     };
 
-    payload.insert(
-        "tenant-id".to_string(),
-        serde_json::value::to_value(tenant)?,
-    );
-
     let client = reqwest::Client::new();
 
-    client
+    let tenant = client
         .request(Method::POST, url)
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .trace()
         .send()
+        .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
             StatusCode::CREATED => Ok(response),
-            StatusCode::CONFLICT => Err(AlreadyExists(tenant.to_string()).into()),
+            StatusCode::CONFLICT => Err(AlreadyExists(tenant.unwrap().to_string()).into()),
             StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
             _ => Err(UnexpectedResult(response.status()).into()),
-        })?;
+        })
+        .and_then(|response| resource_id_from_location(response))?;
 
     println!("Created tenant: {}", tenant);
 
@@ -122,7 +107,7 @@ fn tenant_create(context: &Context, tenant: &str, payload: Option<&str>) -> Resu
 }
 
 fn tenant_update(context: &Context, tenant: &str, payload: Option<&str>) -> Result<()> {
-    let url = tenant_url(context, Some(tenant))?;
+    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -157,12 +142,12 @@ fn tenant_update(context: &Context, tenant: &str, payload: Option<&str>) -> Resu
 }
 
 fn tenant_delete(context: &Context, tenant: &str) -> Result<()> {
-    let url = tenant_url(context, Some(tenant))?;
+    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
     resource_delete(&context, &url, "Tenant", tenant)
 }
 
 fn tenant_enable(context: &Context, tenant: &str) -> Result<()> {
-    let url = tenant_url(context, Some(tenant))?;
+    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(&context, &url, &url, tenant, |payload| {
         payload.insert(KEY_ENABLED.into(), Value::Bool(true));
@@ -175,7 +160,7 @@ fn tenant_enable(context: &Context, tenant: &str) -> Result<()> {
 }
 
 fn tenant_disable(context: &Context, tenant: &str) -> Result<()> {
-    let url = tenant_url(context, Some(tenant))?;
+    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(&context, &url, &url, tenant, |payload| {
         payload.insert(KEY_ENABLED.into(), Value::Bool(false));
@@ -188,6 +173,6 @@ fn tenant_disable(context: &Context, tenant: &str) -> Result<()> {
 }
 
 fn tenant_get(context: &Context, tenant: &str) -> Result<()> {
-    let url = tenant_url(context, Some(tenant))?;
+    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
     resource_get(&context, &url, "Tenant")
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 Red Hat Inc
+ * Copyright (c) 2018, 2019 Red Hat Inc
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -28,10 +28,15 @@ use crate::utils::Either;
 
 use crate::overrides::Overrides;
 use crate::resource::Tracer;
-use crate::resource::{resource_delete, resource_get, resource_modify, resource_url, AuthExt};
+use crate::resource::{
+    resource_append_path, resource_delete, resource_get, resource_id_from_location,
+    resource_modify, resource_url, AuthExt,
+};
 
 type Result<T> = std::result::Result<T, error::Error>;
-static RESOURCE_NAME: &str = "registration";
+const RESOURCE_NAME: &'static str = "devices";
+const RESOURCE_LABEL: &'static str = "Device";
+const PROP_ENABLED: &'static str = "enabled";
 
 pub fn registration(
     app: &mut App,
@@ -43,7 +48,7 @@ pub fn registration(
         ("create", Some(cmd_matches)) => registration_create(
             context,
             overrides,
-            cmd_matches.value_of("device").unwrap(),
+            cmd_matches.value_of("device"),
             cmd_matches.value_of("payload"),
         )?,
         ("update", Some(cmd_matches)) => registration_update(
@@ -79,38 +84,40 @@ pub fn registration(
 fn registration_create(
     context: &Context,
     overrides: &Overrides,
-    device: &str,
+    device: Option<&str>,
     payload: Option<&str>,
 ) -> Result<()> {
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant])?;
 
-    let mut payload = match payload {
+    // if we have a pre-defined id, use it
+    debug!("Device ID: {:?}", device);
+    let url = resource_append_path(url, device)?;
+    debug!("URL: {:?}", url);
+
+    let payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
         _ => serde_json::value::Map::new(),
     };
 
-    payload.insert(
-        "device-id".to_string(),
-        serde_json::value::to_value(device)?,
-    );
-
     let client = reqwest::Client::new();
 
-    client
+    let device = client
         .request(Method::POST, url)
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .trace()
         .send()
+        .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
             StatusCode::CREATED => Ok(response),
-            StatusCode::CONFLICT => Err(AlreadyExists(device.to_string()).into()),
+            StatusCode::CONFLICT => Err(AlreadyExists(device.unwrap().to_string()).into()),
             StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
             _ => Err(UnexpectedResult(response.status()).into()),
-        })?;
+        })
+        .and_then(|response| resource_id_from_location(response))?;
 
     println!("Registered device {} for tenant {}", device, tenant);
 
@@ -126,15 +133,10 @@ fn registration_update(
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.to_string()])?;
 
-    let mut payload = match payload {
+    let payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
         _ => serde_json::value::Map::new(),
     };
-
-    payload.insert(
-        "device-id".to_string(),
-        serde_json::value::to_value(device)?,
-    );
 
     let client = reqwest::Client::new();
 
@@ -145,6 +147,7 @@ fn registration_update(
         .json(&payload)
         .trace()
         .send()
+        .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
@@ -153,10 +156,7 @@ fn registration_update(
             _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
-    println!(
-        "Updated device registration {} for tenant {}",
-        device, tenant
-    );
+    println!("Updated device device {} for tenant {}", device, tenant);
 
     return Ok(());
 }
@@ -167,7 +167,7 @@ fn registration_delete(context: &Context, overrides: &Overrides, device: &str) -
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
-    resource_delete(&context, &url, "Registration", &device)
+    resource_delete(&context, &url, RESOURCE_LABEL, &device)
 }
 
 fn registration_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
@@ -176,7 +176,7 @@ fn registration_get(context: &Context, overrides: &Overrides, device: &str) -> R
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
-    resource_get(&context, &url, "Registration")
+    resource_get(&context, &url, RESOURCE_LABEL)
 }
 
 fn registration_enable(
@@ -191,8 +191,8 @@ fn registration_enable(
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
 
-    resource_modify(&context, &url, &url, "Registration", |reg| {
-        reg.insert("enabled".into(), serde_json::value::Value::Bool(status));
+    resource_modify(&context, &url, &url, RESOURCE_LABEL, |reg| {
+        reg.insert(PROP_ENABLED.into(), serde_json::value::Value::Bool(status));
         Ok(())
     })?;
 

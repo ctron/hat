@@ -38,3 +38,4 @@ rand = "0.6"
 sha2 = "0.8"
 
 colored_json = "1.0"
+ansi_term = "0.11"
