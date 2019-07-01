@@ -67,8 +67,8 @@ pub enum ErrorKind {
     #[fail(display = "Resource already exists: {}", _0)]
     AlreadyExists(String),
 
-    #[fail(display = "Malformed request")]
-    MalformedRequest,
+    #[fail(display = "Malformed request: {}", _0)]
+    MalformedRequest(String),
 
     #[fail(display = "Unexpected return code: {}", _0)]
     UnexpectedResult(http::StatusCode),

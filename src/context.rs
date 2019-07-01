@@ -110,11 +110,11 @@ impl Context {
     }
 
     // Tests if the context supports the requested API versions
-    pub fn api_required(&self, apis: &[&ApiFlavor]) -> Result<(), error::Error> {
+    pub fn api_required(&self, apis: &[ApiFlavor]) -> Result<(), error::Error> {
         let our = self.api_flavor();
 
         for api in apis {
-            if *api == our {
+            if api == our {
                 // found ... OK
                 return Ok(());
             }
@@ -388,11 +388,14 @@ fn context_show() -> Result<(), error::Error> {
 
     println!("Current context: {}", context.unwrap());
     println!("            URL: {}", ctx.url);
-    if ctx.api_flavor.is_some() {
-        println!("       API type: {}", ctx.api_flavor.unwrap());
-    } else {
-        println!("       API type: <none>");
-    }
+
+    println!(
+        "       API type: {}",
+        ctx.api_flavor
+            .as_ref()
+            .map_or_else(|| String::from("<none>"), ApiFlavor::to_string)
+    );
+
     println!(
         "       Username: {}",
         ctx.username.unwrap_or(String::from("<none>"))

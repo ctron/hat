@@ -91,11 +91,11 @@ fn app() -> App<'static, 'static> {
 
     // credentials
 
-    let args_credentials_type = Arg::with_name("type")
-        .help("Type of credentials")
-        .required(true);
     let args_credentials_auth_id = Arg::with_name("auth-id")
         .help("Device Authentication ID")
+        .required(true);
+    let args_credentials_type = Arg::with_name("type")
+        .help("Device Authentication Type")
         .required(true);
     let args_credentials_payload =
         Arg::with_name("payload").help("Credentials payload in JSON format");
@@ -123,7 +123,7 @@ fn app() -> App<'static, 'static> {
         .bin_name("hat")
         .author("Jens Reimann <jreimann@redhat.com>")
         .about("Work with an Eclipse Hono instance")
-        .setting(AppSettings::VersionlessSubcommands)
+        .global_setting(AppSettings::VersionlessSubcommands)
         .arg(
             Arg::with_name("verbose")
                 .help("Be more verbose, repeat to increase verbosity")
@@ -258,22 +258,14 @@ fn app() -> App<'static, 'static> {
         )
         .subcommand(
             SubCommand::with_name("cred")
+                .aliases(&["creds", "auth", "credentials"])
                 .about("Work with device credentials")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 // .arg(args_tenant.clone())
                 .subcommand(
-                    SubCommand::with_name("create")
-                        .about("Create a new credentials set for an existing device")
+                    SubCommand::with_name("set")
+                        .about("Set all credentials for device")
                         .arg(args_device.clone())
-                        .arg(args_credentials_auth_id.clone())
-                        .arg(args_credentials_type.clone())
-                        .arg(args_credentials_payload.clone()),
-                )
-                .subcommand(
-                    SubCommand::with_name("update")
-                        .about("Update an existing credentials set")
-                        .arg(args_credentials_auth_id.clone())
-                        .arg(args_credentials_type.clone())
                         .arg(args_credentials_payload.clone()),
                 )
                 .subcommand(
@@ -282,37 +274,9 @@ fn app() -> App<'static, 'static> {
                         .arg(args_device.clone()),
                 )
                 .subcommand(
-                    SubCommand::with_name("get-for")
-                        .about("Get all credentials by auth ID and type")
-                        .arg(args_credentials_auth_id.clone())
-                        .arg(args_credentials_type.clone()),
-                )
-                .subcommand(
-                    SubCommand::with_name("delete")
-                        .about("Delete all credentials for an existing device")
-                        .arg(args_device.clone()),
-                )
-                .subcommand(
-                    SubCommand::with_name("delete-for")
-                        .about("Delete all credentials by auth ID and type")
-                        .arg(args_credentials_auth_id.clone())
-                        .arg(args_credentials_type.clone()),
-                )
-                .subcommand(
-                    SubCommand::with_name("enable")
-                        .about("Enable a set of credentials")
-                        .arg(args_credentials_auth_id.clone())
-                        .arg(args_credentials_type.clone()),
-                )
-                .subcommand(
-                    SubCommand::with_name("disable")
-                        .about("Disable a set of credentials")
-                        .arg(args_credentials_auth_id.clone())
-                        .arg(args_credentials_type.clone()),
-                )
-                .subcommand(
                     SubCommand::with_name("add-password")
-                        .about("Add password secret for an existing credentials set")
+                        .about("Add password secret")
+                        .arg(args_device.clone())
                         .arg(args_credentials_auth_id.clone())
                         .arg(
                             Arg::with_name("hash-function")
@@ -324,13 +288,6 @@ fn app() -> App<'static, 'static> {
                             Arg::with_name("password")
                                 .required(true)
                                 .help("The plaintext password"),
-                        )
-                        .arg(
-                            Arg::with_name("device")
-                                .help("Create credentials set for device if necessary")
-                                .long("device")
-                                .takes_value(true)
-                                .max_values(1),
                         )
                         .arg(
                             Arg::with_name("no-salt")
@@ -340,7 +297,8 @@ fn app() -> App<'static, 'static> {
                 )
                 .subcommand(
                     SubCommand::with_name("set-password")
-                        .about("Set password as the only secret to an existing credentials set")
+                        .about("Set password as the only secret")
+                        .arg(args_device.clone())
                         .arg(args_credentials_auth_id.clone())
                         .arg(
                             Arg::with_name("hash-function")
@@ -354,17 +312,22 @@ fn app() -> App<'static, 'static> {
                                 .help("The plaintext password"),
                         )
                         .arg(
-                            Arg::with_name("device")
-                                .help("Create credentials set for device if necessary")
-                                .long("device")
-                                .takes_value(true)
-                                .max_values(1),
-                        )
-                        .arg(
                             Arg::with_name("no-salt")
                                 .help("Disable the use of a salt - not recommended")
                                 .long("--no-salt"),
                         ),
+                )
+                .subcommand(
+                    SubCommand::with_name("delete")
+                        .about("Delete a credential set from a device")
+                        .arg(args_device.clone())
+                        .arg(args_credentials_auth_id.clone())
+                        .arg(args_credentials_type.clone()),
+                )
+                .subcommand(
+                    SubCommand::with_name("delete-all")
+                        .about("Delete all credentials for a device")
+                        .arg(args_device.clone()),
                 ),
         );
 

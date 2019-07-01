@@ -25,9 +25,9 @@ use crate::error::ErrorKind::{MalformedRequest, NotFound, Response, UnexpectedRe
 use crate::context::Context;
 use crate::error;
 
-use serde_json::{Map, Value};
-
 use crate::output::display_json_value;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -174,7 +174,7 @@ pub fn resource_get(context: &Context, url: &url::Url, resource_type: &str) -> R
     Ok(())
 }
 
-pub fn resource_modify_with_create<C, F>(
+pub fn resource_modify_with_create<C, F, T>(
     context: &Context,
     read_url: &Url,
     update_url: &Url,
@@ -183,8 +183,9 @@ pub fn resource_modify_with_create<C, F>(
     modifier: F,
 ) -> Result<reqwest::Response>
 where
-    F: Fn(&mut Map<String, Value>) -> Result<()>,
-    C: Fn() -> Result<Map<String, Value>>,
+    F: Fn(&mut T) -> Result<()>,
+    C: Fn() -> Result<T>,
+    T: Serialize + DeserializeOwned + std::fmt::Debug,
 {
     let client = reqwest::Client::new();
 
@@ -198,19 +199,19 @@ where
         .trace()
         .map_err(error::Error::from)?;
 
-    let mut payload: Map<String, Value> = match response.status() {
+    let mut payload: T = match response.status() {
         StatusCode::OK => response.json().map_err(error::Error::from),
         StatusCode::NOT_FOUND => creator(),
         _ => Err(UnexpectedResult(response.status()).into()),
     }?;
 
-    debug!("GET Payload: {:?}", payload);
+    info!("GET Payload: {:#?}", payload);
 
     // call consumer
 
     modifier(&mut payload)?;
 
-    debug!("PUT Payload: {:?}", payload);
+    info!("PUT Payload: {:#?}", payload);
 
     // retrieve ETag header
 
@@ -228,15 +229,19 @@ where
         .send()
         .trace()
         .map_err(error::Error::from)
-        .and_then(|response| match response.status() {
+        .and_then(|mut response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
             StatusCode::NOT_FOUND => Err(NotFound(resource_name.into()).into()),
-            StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
+            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
             _ => Err(UnexpectedResult(response.status()).into()),
         })
 }
 
-pub fn resource_modify<F>(
+pub fn resource_err_bad_request<T>(response: &mut reqwest::Response) -> Result<T> {
+    Err(MalformedRequest(response.text().unwrap_or("<unknown>".into())).into())
+}
+
+pub fn resource_modify<F, T>(
     context: &Context,
     read_url: &Url,
     update_url: &Url,
@@ -244,7 +249,8 @@ pub fn resource_modify<F>(
     modifier: F,
 ) -> Result<reqwest::Response>
 where
-    F: Fn(&mut Map<String, Value>) -> Result<()>,
+    F: Fn(&mut T) -> Result<()>,
+    T: Serialize + DeserializeOwned + std::fmt::Debug,
 {
     resource_modify_with_create(
         context,

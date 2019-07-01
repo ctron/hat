@@ -17,6 +17,8 @@ use crate::context::{ApiFlavor, Context};
 use crate::help::help;
 use reqwest;
 
+use serde_json::value::{Map, Value};
+
 use http::header::CONTENT_TYPE;
 use http::method::Method;
 use http::status::StatusCode;
@@ -29,8 +31,8 @@ use crate::utils::Either;
 use crate::overrides::Overrides;
 use crate::resource::Tracer;
 use crate::resource::{
-    resource_append_path, resource_delete, resource_get, resource_id_from_location,
-    resource_modify, resource_url, AuthExt,
+    resource_append_path, resource_delete, resource_err_bad_request, resource_get,
+    resource_id_from_location, resource_modify, resource_url, AuthExt,
 };
 
 type Result<T> = std::result::Result<T, error::Error>;
@@ -89,7 +91,7 @@ fn registration_create(
 ) -> Result<()> {
     if device.is_none() {
         // only works in the V1 api
-        context.api_required(&[&ApiFlavor::EclipseHonoV1])?;
+        context.api_required(&[ApiFlavor::EclipseHonoV1])?;
     }
 
     let tenant = context.make_tenant(overrides)?;
@@ -113,10 +115,10 @@ fn registration_create(
         .send()
         .trace()
         .map_err(error::Error::from)
-        .and_then(|response| match response.status() {
+        .and_then(|mut response| match response.status() {
             StatusCode::CREATED => Ok(response),
             StatusCode::CONFLICT => Err(AlreadyExists(device.unwrap().to_string()).into()),
-            StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
+            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
             _ => Err(UnexpectedResult(response.status()).into()),
         })
         .and_then(|response| resource_id_from_location(response))?;
@@ -133,7 +135,7 @@ fn registration_update(
     payload: Option<&str>,
 ) -> Result<()> {
     let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.to_string()])?;
+    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
 
     let payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -151,10 +153,10 @@ fn registration_update(
         .send()
         .trace()
         .map_err(error::Error::from)
-        .and_then(|response| match response.status() {
+        .and_then(|mut response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
             StatusCode::NOT_FOUND => Err(NotFound(device.to_string()).into()),
-            StatusCode::BAD_REQUEST => Err(MalformedRequest.into()),
+            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
             _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
@@ -193,10 +195,16 @@ fn registration_enable(
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
 
-    resource_modify(&context, &url, &url, RESOURCE_LABEL, |reg| {
-        reg.insert(PROP_ENABLED.into(), serde_json::value::Value::Bool(status));
-        Ok(())
-    })?;
+    resource_modify(
+        &context,
+        &url,
+        &url,
+        RESOURCE_LABEL,
+        |reg: &mut Map<String, Value>| {
+            reg.insert(PROP_ENABLED.into(), serde_json::value::Value::Bool(status));
+            Ok(())
+        },
+    )?;
 
     println!(
         "Registration for device {} {}",
