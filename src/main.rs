@@ -20,6 +20,8 @@ extern crate log;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate bcrypt;
+
 use clap::{App, AppSettings, Arg, SubCommand};
 use overrides::Overrides;
 use simplelog::{Config, LevelFilter, TermLogger};
@@ -38,7 +40,7 @@ mod tenant;
 mod utils;
 
 fn app() -> App<'static, 'static> {
-    let hash_functions = ["sha-256", "sha-512"];
+    let hash_functions = ["sha-256", "sha-512", "bcrypt"];
 
     // context
 

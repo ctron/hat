@@ -169,3 +169,12 @@ impl From<std::string::FromUtf8Error> for Error {
         err.context(ErrorKind::Utf8Error).into()
     }
 }
+
+impl From<bcrypt::BcryptError> for Error {
+    fn from(err: bcrypt::BcryptError) -> Error {
+        err.context(ErrorKind::GenericError(
+            "Failed to generate BCrypt hash".into(),
+        ))
+        .into()
+    }
+}

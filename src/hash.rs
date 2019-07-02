@@ -14,30 +14,55 @@
 use sha2::Digest;
 use sha2::{Sha256, Sha512};
 
+use rand::rngs::EntropyRng;
+use rand::RngCore;
+
 pub enum HashFunction {
     Sha256,
     Sha512,
+    Bcrypt,
 }
+
+use crate::error;
+type Result<T> = std::result::Result<T, error::Error>;
 
 impl std::str::FromStr for HashFunction {
     type Err = &'static str;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "sha-256" => Ok(HashFunction::Sha256),
             "sha-512" => Ok(HashFunction::Sha512),
+            "bcrypt" => Ok(HashFunction::Bcrypt),
             _ => Err("Invalid value"),
         }
     }
 }
 
-fn do_hash<D: Digest + Default>(salt: &[u8], password: &str) -> String {
+fn do_hash<D: Digest + Default>(salt: &[u8], password: &str) -> (String, Option<String>) {
     let mut md = D::default();
     md.input(salt);
     md.input(password);
+
     let dig = md.result();
 
-    return base64::encode(&dig);
+    return (base64::encode(&dig), Some(base64::encode(&salt)));
+}
+
+fn do_bcrypt(password: &str) -> Result<(String, Option<String>)> {
+    let mut hash = bcrypt::hash(password, 10)?;
+
+    hash.replace_range(1..3, "2a");
+
+    return Ok((hash, None));
+}
+
+fn gen_salt(size: usize) -> Vec<u8> {
+    let mut rnd = EntropyRng::new();
+    let mut salt = vec![0; size];
+
+    rnd.fill_bytes(&mut salt);
+    salt
 }
 
 impl HashFunction {
@@ -45,13 +70,15 @@ impl HashFunction {
         match self {
             HashFunction::Sha256 => "sha-256",
             HashFunction::Sha512 => "sha-512",
+            HashFunction::Bcrypt => "bcrypt",
         }
     }
 
-    pub fn hash(&self, salt: &[u8], password: &str) -> String {
+    pub fn hash(&self, password: &str) -> Result<(String, Option<String>)> {
         match self {
-            HashFunction::Sha256 => do_hash::<Sha256>(salt, password),
-            HashFunction::Sha512 => do_hash::<Sha512>(salt, password),
+            HashFunction::Sha256 => Ok(do_hash::<Sha256>(gen_salt(16).as_slice(), password)),
+            HashFunction::Sha512 => Ok(do_hash::<Sha512>(gen_salt(16).as_slice(), password)),
+            HashFunction::Bcrypt => do_bcrypt(password),
         }
     }
 }

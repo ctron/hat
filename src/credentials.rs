@@ -35,9 +35,6 @@ use crate::resource::{
 
 use serde_json::value::{Map, Value};
 
-use rand::rngs::EntropyRng;
-use rand::RngCore;
-
 use crate::overrides::Overrides;
 
 type Result<T> = std::result::Result<T, error::Error>;
@@ -69,7 +66,6 @@ pub fn credentials(
             cmd_matches.value_of("password").unwrap(),
             &value_t!(cmd_matches.value_of("hash-function"), HashFunction).unwrap(),
             false,
-            cmd_matches.is_present("no-salt"),
         )?,
         ("set-password", Some(cmd_matches)) => credentials_add_password(
             context,
@@ -79,7 +75,6 @@ pub fn credentials(
             cmd_matches.value_of("password").unwrap(),
             &value_t!(cmd_matches.value_of("hash-function"), HashFunction).unwrap(),
             true,
-            cmd_matches.is_present("no-salt"),
         )?,
         ("delete", Some(cmd_matches)) => {
             let expected_type_name = cmd_matches.value_of("type").unwrap();
@@ -207,16 +202,17 @@ fn credentials_add_password(
     password: &str,
     hash_function: &HashFunction,
     clear: bool,
-    nosalt: bool,
 ) -> Result<()> {
+    let new_secret = new_secret(password, hash_function)?;
+
     cred_add_or_insert(
         context,
         overrides,
         clear,
-        "hashed-password",
+        TYPE_HASHED_PASSWORD,
         device,
         auth_id,
-        new_secret(password, hash_function, nosalt),
+        new_secret,
     )?;
 
     if clear {
@@ -296,35 +292,24 @@ fn new_credential(type_name: &str, auth_id: &str) -> Value {
 }
 
 /// Create a new secrets entry, based on `hashed-password`
-fn new_secret(plain_password: &str, hash_function: &HashFunction, nosalt: bool) -> Value {
+fn new_secret(plain_password: &str, hash_function: &HashFunction) -> Result<Value> {
     let mut new_pair = Map::new();
-
-    let mut rnd = EntropyRng::new();
-
-    let salt = match nosalt {
-        true => vec![0; 0],
-        false => {
-            let mut salt = vec![0; 8];
-            rnd.fill_bytes(&mut salt);
-            salt
-        }
-    };
 
     // hash it
 
-    let hash = hash_function.hash(&salt, &plain_password);
-    let salt = base64::encode(&salt);
+    let hash = hash_function.hash(&plain_password)?;
 
     // put to result
 
     new_pair.insert("type".into(), TYPE_HASHED_PASSWORD.into());
     new_pair.insert("hash-function".into(), hash_function.name().into());
-    new_pair.insert("pwd-hash".into(), hash.into());
-    if !nosalt {
+    new_pair.insert("pwd-hash".into(), hash.0.into());
+
+    if let Some(salt) = hash.1 {
         new_pair.insert("salt".into(), salt.into());
     }
 
     // return as value
 
-    return Value::Object(new_pair);
+    return Ok(Value::Object(new_pair));
 }

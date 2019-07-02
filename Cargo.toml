@@ -36,6 +36,7 @@ base64 = "0.10"
 rand = "0.6"
 
 sha2 = "0.8"
+bcrypt = "0.5"
 
 colored_json = "1.0"
 ansi_term = "0.11"
