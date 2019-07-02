@@ -40,8 +40,6 @@ mod tenant;
 mod utils;
 
 fn app() -> App<'static, 'static> {
-    let hash_functions = ["sha-256", "sha-512", "bcrypt"];
-
     // context
 
     let args_ctx = Arg::with_name("context")
@@ -101,6 +99,13 @@ fn app() -> App<'static, 'static> {
         .required(true);
     let args_credentials_payload =
         Arg::with_name("payload").help("Credentials payload in JSON format");
+    let args_credentials_hash_function = Arg::with_name("hash-function")
+        .short("h")
+        .long("hash")
+        .required(true)
+        .takes_value(true)
+        .help("Password hash function [possible values: sha-256, sha-512, bcrypt<:iterations>]")
+        .default_value("bcrypt");
 
     // overrides
 
@@ -280,12 +285,7 @@ fn app() -> App<'static, 'static> {
                         .about("Add password secret")
                         .arg(args_device.clone())
                         .arg(args_credentials_auth_id.clone())
-                        .arg(
-                            Arg::with_name("hash-function")
-                                .required(true)
-                                .help("Password hash function")
-                                .possible_values(&hash_functions),
-                        )
+                        .arg(args_credentials_hash_function.clone())
                         .arg(
                             Arg::with_name("password")
                                 .required(true)
@@ -302,12 +302,7 @@ fn app() -> App<'static, 'static> {
                         .about("Set password as the only secret")
                         .arg(args_device.clone())
                         .arg(args_credentials_auth_id.clone())
-                        .arg(
-                            Arg::with_name("hash-function")
-                                .required(true)
-                                .help("Password hash function")
-                                .possible_values(&hash_functions),
-                        )
+                        .arg(args_credentials_hash_function.clone())
                         .arg(
                             Arg::with_name("password")
                                 .required(true)
