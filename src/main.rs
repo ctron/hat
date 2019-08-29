@@ -125,7 +125,7 @@ fn app() -> App<'static, 'static> {
 
     // main app
 
-    let app = App::new("Hono Admin Tool")
+    App::new("Hono Admin Tool")
         .version(crate_version!())
         .bin_name("hat")
         .author("Jens Reimann <jreimann@redhat.com>")
@@ -326,9 +326,7 @@ fn app() -> App<'static, 'static> {
                         .about("Delete all credentials for a device")
                         .arg(args_device.clone()),
                 ),
-        );
-
-    return app;
+        )
 }
 
 fn run() -> Result<(), failure::Error> {
@@ -382,7 +380,7 @@ fn main() {
     if rc.is_err() {
         let err = rc.err().unwrap();
 
-        eprintln!("Execution failed: {}", err);
+        eprintln!("{}", err);
 
         let backtrace = err.backtrace().to_string();
         if !backtrace.trim().is_empty() {

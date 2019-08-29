@@ -48,7 +48,7 @@ pub fn credentials(
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
-    let result = match matches.subcommand() {
+    match matches.subcommand() {
         ("set", Some(cmd_matches)) => credentials_set(
             context,
             overrides,
@@ -98,7 +98,7 @@ pub fn credentials(
         _ => help(app)?,
     };
 
-    Ok(result)
+    Ok(())
 }
 
 fn credentials_set(
@@ -128,14 +128,14 @@ fn credentials_set(
         .map_err(error::Error::from)
         .and_then(|mut response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
-            StatusCode::NOT_FOUND => Err(NotFound(format!("{}", device)).into()),
+            StatusCode::NOT_FOUND => Err(NotFound(device.to_string()).into()),
             StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
             _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
     println!("Updated device secrets: {}", device);
 
-    return Ok(());
+    Ok(())
 }
 
 fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
@@ -221,7 +221,7 @@ fn credentials_add_password(
         println!("Password added to {}/{}", device, auth_id);
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn cred_add_or_insert(
@@ -288,7 +288,7 @@ fn new_credential(type_name: &str, auth_id: &str) -> Value {
     new_pair.insert("auth-id".into(), auth_id.into());
     new_pair.insert("type".into(), type_name.into());
 
-    return Value::Object(new_pair);
+    Value::Object(new_pair)
 }
 
 /// Create a new secrets entry, based on `hashed-password`
@@ -301,7 +301,6 @@ fn new_secret(plain_password: &str, hash_function: &HashFunction) -> Result<Valu
 
     // put to result
 
-    new_pair.insert("type".into(), TYPE_HASHED_PASSWORD.into());
     new_pair.insert("hash-function".into(), hash_function.name().into());
     new_pair.insert("pwd-hash".into(), hash.0.into());
 
@@ -311,5 +310,5 @@ fn new_secret(plain_password: &str, hash_function: &HashFunction) -> Result<Valu
 
     // return as value
 
-    return Ok(Value::Object(new_pair));
+    Ok(Value::Object(new_pair))
 }

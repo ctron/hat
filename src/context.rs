@@ -79,27 +79,27 @@ pub struct Context {
 
 impl Context {
     pub fn to_url(&self) -> Result<url::Url, url::ParseError> {
-        Url::parse(self.url.as_str())
+        Url::parse(&self.url)
     }
 
     pub fn username(&self) -> &Option<String> {
-        return &self.username;
+        &self.username
     }
 
     pub fn password(&self) -> &Option<String> {
-        return &self.password;
+        &self.password
     }
 
     #[allow(dead_code)]
     pub fn default_tenant(&self) -> &Option<String> {
-        return &self.default_tenant;
+        &self.default_tenant
     }
 
     pub fn make_tenant(&self, overrides: &Overrides) -> Result<String, error::Error> {
-        return overrides.tenant().clone()
+        overrides.tenant().clone()
             .map(|s|s.to_string())
-            .or(self.default_tenant.clone())
-            .ok_or(error::Error::from(ErrorKind::GenericError("No tenant specified. Either set a default tenant for the context or use the argument --tenant to provide one.".into())));
+            .or_else(|| self.default_tenant.clone())
+            .ok_or_else(|| error::Error::from(ErrorKind::GenericError("No tenant specified. Either set a default tenant for the context or use the argument --tenant to provide one.".into())))
     }
 
     pub fn api_flavor(&self) -> &ApiFlavor {
@@ -122,7 +122,7 @@ impl Context {
 
         // not found .. Err
         let msg = format!("Operation not supported by API: {}", our);
-        return Err(ErrorKind::GenericError(msg).into());
+        Err(ErrorKind::GenericError(msg).into())
     }
 }
 
@@ -166,7 +166,7 @@ fn context_decode_file_name(name: &str) -> Result<String, Utf8Error> {
 fn context_config_dir() -> Result<PathBuf, error::Error> {
     let dir = dirs::config_dir().expect("Unable to evaluate user's configuration directory");
 
-    return Ok(dir.join("hat"));
+    Ok(dir.join("hat"))
 }
 
 fn context_contexts_dir() -> Result<PathBuf, error::Error> {
@@ -180,7 +180,7 @@ fn context_file_path(context: &str) -> Result<PathBuf, error::Error> {
         return Err(ErrorKind::ContextNameError(context.to_string()).into());
     }
 
-    return context_contexts_dir().map(|path| path.join(context_encode_file_name(context)));
+    context_contexts_dir().map(|path| path.join(context_encode_file_name(context)))
 }
 
 fn context_load(context: &str) -> Result<Context, error::Error> {
@@ -208,7 +208,7 @@ fn context_get_current() -> Result<Option<String>, error::Error> {
 
     File::open(path)?.read_to_string(&mut current)?;
 
-    return Ok(Some(current));
+    Ok(Some(current))
 }
 
 pub fn context_load_current(overrides: Option<&Overrides>) -> Result<Context, error::Error> {
@@ -250,12 +250,12 @@ fn context_store(context_name: &str, context: Context) -> Result<(), error::Erro
 
     file.write_all(serde_yaml::to_string(&context)?.as_bytes())?;
 
-    return Ok(());
+    Ok(())
 }
 
 fn context_validate_url(url: &str) -> Result<(), error::Error> {
     Url::parse(&url)?;
-    return Ok(());
+    Ok(())
 }
 
 fn context_switch(context: &str) -> Result<(), error::Error> {
@@ -297,7 +297,7 @@ fn context_create(
     println!("Created new context: {}", context);
     context_switch(context)?;
 
-    return Ok(());
+    Ok(())
 }
 
 fn context_update(
@@ -353,7 +353,7 @@ fn context_update(
 
     context_store(context, ctx)?;
 
-    return Ok(());
+    Ok(())
 }
 
 fn context_delete(context: &str) -> Result<(), error::Error> {
@@ -372,14 +372,14 @@ fn context_delete(context: &str) -> Result<(), error::Error> {
         }
     } else {
         println!("Nothing to delete");
-        return Ok(());
+        return Ok(())
     }
 
     // success
 
     println!("Deleted context: {}", context);
 
-    return Ok(());
+    Ok(())
 }
 
 fn context_show() -> Result<(), error::Error> {
@@ -398,7 +398,7 @@ fn context_show() -> Result<(), error::Error> {
 
     println!(
         "       Username: {}",
-        ctx.username.unwrap_or(String::from("<none>"))
+        ctx.username.unwrap_or_else(|| String::from("<none>"))
     );
     println!(
         "       Password: {}",
@@ -406,10 +406,10 @@ fn context_show() -> Result<(), error::Error> {
     );
     println!(
         " Default tenant: {}",
-        ctx.default_tenant.unwrap_or(String::from("<none>"))
+        ctx.default_tenant.unwrap_or_else(|| String::from("<none>"))
     );
 
-    return Ok(());
+    Ok(())
 }
 
 fn context_list() -> Result<(), error::Error> {
@@ -434,7 +434,7 @@ fn context_list() -> Result<(), error::Error> {
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn context_current() -> Result<(), error::Error> {

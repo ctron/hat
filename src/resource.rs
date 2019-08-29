@@ -46,11 +46,11 @@ impl AuthExt for reqwest::RequestBuilder {
 }
 
 pub trait IfMatch {
-    fn if_match(self, value: &Option<&http::header::HeaderValue>) -> Self;
+    fn if_match(self, value: Option<&http::header::HeaderValue>) -> Self;
 }
 
 impl IfMatch for reqwest::RequestBuilder {
-    fn if_match(self, value: &Option<&http::header::HeaderValue>) -> Self {
+    fn if_match(self, value: Option<&http::header::HeaderValue>) -> Self {
         if let Some(etag) = value {
             self.header(IF_MATCH, etag.clone())
         } else {
@@ -99,7 +99,7 @@ where
         path.extend(segments);
     }
 
-    return Ok(url);
+    Ok(url)
 }
 
 pub fn resource_url_query<S>(
@@ -123,7 +123,7 @@ where
         }
     }
 
-    return Ok(url);
+    Ok(url)
 }
 
 pub fn resource_delete(
@@ -149,7 +149,7 @@ pub fn resource_delete(
 
     println!("{} deleted: {}", resource_type, resource_name);
 
-    return Ok(());
+    Ok(())
 }
 
 pub fn resource_get(context: &Context, url: &url::Url, resource_type: &str) -> Result<()> {
@@ -223,7 +223,7 @@ where
         .request(Method::PUT, update_url.clone())
         .apply_auth(context)
         .header(CONTENT_TYPE, "application/json")
-        .if_match(&etag)
+        .if_match(etag)
         .json(&payload)
         .trace()
         .send()
@@ -238,7 +238,7 @@ where
 }
 
 pub fn resource_err_bad_request<T>(response: &mut reqwest::Response) -> Result<T> {
-    Err(MalformedRequest(response.text().unwrap_or("<unknown>".into())).into())
+    Err(MalformedRequest(response.text().unwrap_or_else(|_| "<unknown>".into())).into())
 }
 
 pub fn resource_modify<F, T>(
@@ -263,17 +263,17 @@ where
 }
 
 pub fn resource_id_from_location(response: reqwest::Response) -> Result<String> {
-    let loc = response.headers().get(LOCATION).clone();
+    let loc = response.headers().get(LOCATION);
 
     if let Some(s) = loc {
         let id: String = s.to_str()?.into();
 
-        let s = id.split("/").last();
+        let s = id.split('/').last();
 
-        return s
+        s
             .map(|s| s.into())
-            .ok_or(Response(String::from("Missing ID element in 'Location' header")).into());
+            .ok_or_else(|| Response(String::from("Missing ID element in 'Location' header")).into())
     } else {
-        return Err(Response(String::from("Missing 'Location' header in response")).into());
+        Err(Response(String::from("Missing 'Location' header in response")).into())
     }
 }

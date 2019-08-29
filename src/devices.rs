@@ -36,9 +36,9 @@ use crate::resource::{
 };
 
 type Result<T> = std::result::Result<T, error::Error>;
-const RESOURCE_NAME: &'static str = "devices";
-const RESOURCE_LABEL: &'static str = "Device";
-const PROP_ENABLED: &'static str = "enabled";
+const RESOURCE_NAME: & str = "devices";
+const RESOURCE_LABEL: & str = "Device";
+const PROP_ENABLED: & str = "enabled";
 
 pub fn registration(
     app: &mut App,
@@ -46,7 +46,7 @@ pub fn registration(
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
-    let result = match matches.subcommand() {
+    match matches.subcommand() {
         ("create", Some(cmd_matches)) => registration_create(
             context,
             overrides,
@@ -80,7 +80,7 @@ pub fn registration(
         _ => help(app)?,
     };
 
-    Ok(result)
+    Ok(())
 }
 
 fn registration_create(
@@ -121,11 +121,11 @@ fn registration_create(
             StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
             _ => Err(UnexpectedResult(response.status()).into()),
         })
-        .and_then(|response| resource_id_from_location(response))?;
+        .and_then(resource_id_from_location)?;
 
     println!("Registered device {} for tenant {}", device, tenant);
 
-    return Ok(());
+    Ok(())
 }
 
 fn registration_update(
@@ -162,7 +162,7 @@ fn registration_update(
 
     println!("Updated device device {} for tenant {}", device, tenant);
 
-    return Ok(());
+    Ok(())
 }
 
 fn registration_delete(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {

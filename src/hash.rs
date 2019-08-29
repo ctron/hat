@@ -58,15 +58,15 @@ fn do_hash<D: Digest + Default>(salt: &[u8], password: &str) -> (String, Option<
 
     let dig = md.result();
 
-    return (base64::encode(&dig), Some(base64::encode(&salt)));
+    (base64::encode(&dig), Some(base64::encode(&salt)))
 }
 
 fn do_bcrypt(password: &str, iterations: u8) -> Result<(String, Option<String>)> {
-    let mut hash = bcrypt::hash(password, iterations as u32)?;
+    let mut hash = bcrypt::hash(password, u32::from(iterations))?;
 
     hash.replace_range(1..3, "2a");
 
-    return Ok((hash, None));
+    Ok((hash, None))
 }
 
 fn gen_salt(size: usize) -> Vec<u8> {
@@ -95,7 +95,7 @@ impl HashFunction {
                 let iter = i.parse::<u8>();
 
                 Some(
-                    iter.map(|iter| HashFunction::Bcrypt(iter))
+                    iter.map(HashFunction::Bcrypt)
                         .map_err(|_| "Failed to parse number of iterations"),
                 )
             }

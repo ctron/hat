@@ -75,7 +75,7 @@ pub enum ErrorKind {
 }
 
 impl Fail for Error {
-    fn cause(&self) -> Option<&Fail> {
+    fn cause(&self) -> Option<&dyn Fail> {
         self.inner.cause()
     }
 
@@ -153,7 +153,7 @@ impl From<std::io::Error> for Error {
 
 impl From<clap::Error> for Error {
     fn from(err: clap::Error) -> Error {
-        let kind = err.kind.clone();
+        let kind = err.kind;
         err.context(ErrorKind::CommandLine(kind)).into()
     }
 }
