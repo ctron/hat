@@ -270,8 +270,7 @@ pub fn resource_id_from_location(response: reqwest::Response) -> Result<String> 
 
         let s = id.split('/').last();
 
-        s
-            .map(|s| s.into())
+        s.map(|s| s.into())
             .ok_or_else(|| Response(String::from("Missing ID element in 'Location' header")).into())
     } else {
         Err(Response(String::from("Missing 'Location' header in response")).into())

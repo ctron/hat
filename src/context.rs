@@ -372,7 +372,7 @@ fn context_delete(context: &str) -> Result<(), error::Error> {
         }
     } else {
         println!("Nothing to delete");
-        return Ok(())
+        return Ok(());
     }
 
     // success

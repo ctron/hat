@@ -36,9 +36,9 @@ use crate::resource::{
 };
 
 type Result<T> = std::result::Result<T, error::Error>;
-const RESOURCE_NAME: & str = "devices";
-const RESOURCE_LABEL: & str = "Device";
-const PROP_ENABLED: & str = "enabled";
+const RESOURCE_NAME: &str = "devices";
+const RESOURCE_LABEL: &str = "Device";
+const PROP_ENABLED: &str = "enabled";
 
 pub fn registration(
     app: &mut App,
