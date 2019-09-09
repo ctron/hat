@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 Red Hat Inc
+ * Copyright (c) 2018, 2019 Red Hat Inc
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -26,21 +26,30 @@ use crate::context::Context;
 use crate::error;
 
 use crate::output::display_json_value;
+use crate::overrides::Overrides;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
-pub trait AuthExt {
-    fn apply_auth(self, context: &Context) -> Self;
+pub trait AuthExt
+where
+    Self: Sized,
+{
+    fn apply_auth(self, context: &Context) -> Result<Self>;
 }
 
 impl AuthExt for reqwest::RequestBuilder {
-    fn apply_auth(self, context: &Context) -> Self {
-        if let Some(user) = context.username() {
-            self.basic_auth(user, context.password().clone())
+    fn apply_auth(self, context: &Context) -> Result<Self> {
+        if context.use_kubernetes() {
+            // we already got configured, do nothing in addition
+            Ok(self)
+        } else if let Some(token) = context.token() {
+            Ok(self.bearer_auth(token))
+        } else if let Some(user) = context.username() {
+            Ok(self.basic_auth(user, context.password().clone()))
         } else {
-            self
+            Ok(self)
         }
     }
 }
@@ -64,6 +73,13 @@ pub trait Tracer {
 }
 
 impl Tracer for reqwest::RequestBuilder {
+    fn trace(self) -> Self {
+        info!("{:#?}", self);
+        self
+    }
+}
+
+impl Tracer for reqwest::Client {
     fn trace(self) -> Self {
         info!("{:#?}", self);
         self
@@ -128,15 +144,16 @@ where
 
 pub fn resource_delete(
     context: &Context,
+    overrides: &Overrides,
     url: &url::Url,
     resource_type: &str,
     resource_name: &str,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = context.create_client(overrides)?;
 
     client
         .request(Method::DELETE, url.clone())
-        .apply_auth(context)
+        .apply_auth(context)?
         .trace()
         .send()
         .trace()
@@ -152,12 +169,17 @@ pub fn resource_delete(
     Ok(())
 }
 
-pub fn resource_get(context: &Context, url: &url::Url, resource_type: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+pub fn resource_get(
+    context: &Context,
+    overrides: &Overrides,
+    url: &url::Url,
+    resource_type: &str,
+) -> Result<()> {
+    let client = context.create_client(overrides)?;
 
     let result: serde_json::value::Value = client
         .request(Method::GET, url.clone())
-        .apply_auth(context)
+        .apply_auth(context)?
         .trace()
         .send()
         .trace()
@@ -176,6 +198,7 @@ pub fn resource_get(context: &Context, url: &url::Url, resource_type: &str) -> R
 
 pub fn resource_modify_with_create<C, F, T>(
     context: &Context,
+    overrides: &Overrides,
     read_url: &Url,
     update_url: &Url,
     resource_name: &str,
@@ -187,13 +210,13 @@ where
     C: Fn() -> Result<T>,
     T: Serialize + DeserializeOwned + std::fmt::Debug,
 {
-    let client = reqwest::Client::new();
+    let client = context.create_client(overrides)?;
 
     // get
 
     let mut response = client
         .request(Method::GET, read_url.clone())
-        .apply_auth(context)
+        .apply_auth(context)?
         .trace()
         .send()
         .trace()
@@ -221,7 +244,7 @@ where
 
     client
         .request(Method::PUT, update_url.clone())
-        .apply_auth(context)
+        .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
         .if_match(etag)
         .json(&payload)
@@ -243,6 +266,7 @@ pub fn resource_err_bad_request<T>(response: &mut reqwest::Response) -> Result<T
 
 pub fn resource_modify<F, T>(
     context: &Context,
+    overrides: &Overrides,
     read_url: &Url,
     update_url: &Url,
     resource_name: &str,
@@ -254,6 +278,7 @@ where
 {
     resource_modify_with_create(
         context,
+        overrides,
         read_url,
         update_url,
         resource_name,

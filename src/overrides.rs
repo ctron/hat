@@ -11,9 +11,12 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
+use crate::args::use_kubernetes;
+
 pub struct Overrides {
     context: Option<String>,
     tenant: Option<String>,
+    use_kubernetes: Option<bool>,
 }
 
 impl Overrides {
@@ -23,6 +26,9 @@ impl Overrides {
     pub fn tenant(&self) -> Option<String> {
         self.tenant.clone()
     }
+    pub fn use_kubernetes(&self) -> Option<bool> {
+        self.use_kubernetes
+    }
 }
 
 impl<'a> From<&'a clap::ArgMatches<'a>> for Overrides {
@@ -30,6 +36,7 @@ impl<'a> From<&'a clap::ArgMatches<'a>> for Overrides {
         Overrides {
             context: matches.value_of("context-override").map(|s| s.to_string()),
             tenant: matches.value_of("tenant-override").map(|s| s.to_string()),
+            use_kubernetes: use_kubernetes("kubernetes-override", matches),
         }
     }
 }

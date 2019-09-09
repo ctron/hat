@@ -15,7 +15,6 @@ use clap::{App, ArgMatches};
 
 use crate::context::{ApiFlavor, Context};
 use crate::help::help;
-use reqwest;
 
 use serde_json::value::{Map, Value};
 
@@ -104,11 +103,11 @@ fn registration_create(
         _ => serde_json::value::Map::new(),
     };
 
-    let client = reqwest::Client::new();
+    let client = context.create_client(overrides)?;
 
     let device = client
         .request(Method::POST, url)
-        .apply_auth(context)
+        .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .trace()
@@ -142,11 +141,11 @@ fn registration_update(
         _ => serde_json::value::Map::new(),
     };
 
-    let client = reqwest::Client::new();
+    let client = context.create_client(overrides)?;
 
     client
         .request(Method::PUT, url)
-        .apply_auth(context)
+        .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .trace()
@@ -171,7 +170,7 @@ fn registration_delete(context: &Context, overrides: &Overrides, device: &str) -
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
-    resource_delete(&context, &url, RESOURCE_LABEL, &device)
+    resource_delete(&context, overrides, &url, RESOURCE_LABEL, &device)
 }
 
 fn registration_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
@@ -180,7 +179,7 @@ fn registration_get(context: &Context, overrides: &Overrides, device: &str) -> R
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
-    resource_get(&context, &url, RESOURCE_LABEL)
+    resource_get(&context, overrides, &url, RESOURCE_LABEL)
 }
 
 fn registration_enable(
@@ -197,6 +196,7 @@ fn registration_enable(
 
     resource_modify(
         &context,
+        overrides,
         &url,
         &url,
         RESOURCE_LABEL,

@@ -48,6 +48,9 @@ pub enum ErrorKind {
     #[fail(display = "Invalid UTF-8 string")]
     Utf8Error,
 
+    #[fail(display = "Kubernetes client error")]
+    KubeError,
+
     // context errors
     #[fail(display = "Context '{}' already exists", _0)]
     ContextExistsError(String),
@@ -176,5 +179,13 @@ impl From<bcrypt::BcryptError> for Error {
             "Failed to generate BCrypt hash".into(),
         ))
         .into()
+    }
+}
+
+impl From<kube::Error> for Error {
+    fn from(err: kube::Error) -> Error {
+        Error {
+            inner: err.context(ErrorKind::KubeError).into(),
+        }
     }
 }

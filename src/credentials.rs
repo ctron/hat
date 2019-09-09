@@ -18,8 +18,6 @@ use crate::help::help;
 use crate::context::ApiFlavor::BoschIoTHub;
 use crate::context::Context;
 
-use reqwest;
-
 use http::header::*;
 use http::method::Method;
 use http::status::StatusCode;
@@ -115,11 +113,11 @@ fn credentials_set(
         _ => Vec::<Value>::new(),
     };
 
-    let client = reqwest::Client::new();
+    let client = context.create_client(overrides)?;
 
     client
         .request(Method::PUT, url)
-        .apply_auth(context)
+        .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .trace()
@@ -146,7 +144,7 @@ fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Re
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
 
-    resource_get(&context, &url, "Credentials")
+    resource_get(&context, overrides, &url, "Credentials")
 }
 
 fn credentials_url(context: &Context, overrides: &Overrides, device: &str) -> Result<url::Url> {
@@ -189,7 +187,7 @@ where
 {
     let url = credentials_url(context, overrides, device)?;
 
-    resource_modify(&context, &url, &url, device, modifier)?;
+    resource_modify(&context, overrides, &url, &url, device, modifier)?;
 
     Ok(())
 }

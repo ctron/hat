@@ -27,6 +27,7 @@ use overrides::Overrides;
 use simplelog::{Config, LevelFilter, TermLogger};
 use std::result::Result;
 
+mod args;
 mod context;
 mod credentials;
 mod devices;
@@ -44,6 +45,7 @@ fn app() -> App<'static, 'static> {
 
     let args_ctx = Arg::with_name("context")
         .help("Name of the context")
+        .max_values(1)
         .required(true);
     let args_ctx_url = Arg::with_name("url")
         .help("URL to the server")
@@ -52,22 +54,31 @@ fn app() -> App<'static, 'static> {
         .help("Username for accessing the device registry")
         .long("username")
         .short("u")
-        .takes_value(true);
+        .number_of_values(1);
     let args_ctx_password = Arg::with_name("password")
         .help("Password for accessing the device registry")
         .long("password")
         .short("p")
-        .takes_value(true);
+        .number_of_values(1);
+    let args_ctx_token = Arg::with_name("token")
+        .help("Bearer token for accessing the device registry")
+        .long("token")
+        .number_of_values(1);
+    let args_ctx_kubernetes = Arg::with_name("kubernetes")
+        .help("Use local Kubernetes token for accessing the device registry")
+        .long("kubernetes")
+        .min_values(0)
+        .max_values(1);
     let args_ctx_default_tenant = Arg::with_name("default_tenant")
         .help("Set the default tenant")
         .long("default-tenant")
-        .takes_value(true);
+        .number_of_values(1);
     let args_ctx_api_flavor = Arg::with_name("api_flavor")
         .help("Set the API flavor")
         .long("api-flavor")
         .alias("api-flavour")
         .possible_values(&["hono-v1", "hono", "iothub"])
-        .takes_value(true);
+        .number_of_values(1);
 
     // tenant
 
@@ -114,14 +125,22 @@ fn app() -> App<'static, 'static> {
         .global(true)
         .short("t")
         .long("tenant")
-        .takes_value(true);
+        .number_of_values(1);
 
     let args_override_context = Arg::with_name("context-override")
         .help("Override the default context")
         .global(true)
         .short("c")
         .long("context")
-        .takes_value(true);
+        .number_of_values(1);
+
+    let args_override_kubernetes = Arg::with_name("kubernetes-override")
+        .help("Override the use of Kubernetes credentials")
+        .global(true)
+        .long("use-kubernetes")
+        .short("k")
+        .min_values(0)
+        .max_values(1);
 
     // main app
 
@@ -141,6 +160,7 @@ fn app() -> App<'static, 'static> {
         )
         .arg(args_override_tenant.clone())
         .arg(args_override_context.clone())
+        .arg(args_override_kubernetes.clone())
         .subcommand(
             SubCommand::with_name("context")
                 .about("Work with contexts")
@@ -152,13 +172,15 @@ fn app() -> App<'static, 'static> {
                         .arg(args_ctx_url.clone())
                         .arg(args_ctx_username.clone())
                         .arg(args_ctx_password.clone())
+                        .arg(args_ctx_token.clone())
+                        .arg(args_ctx_kubernetes.clone())
                         .arg(args_ctx_default_tenant.clone())
                         .arg(args_ctx_api_flavor.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("update")
                         .about("Update an existing context")
-                        .arg(args_ctx.clone())
+                        .arg(args_ctx.clone().required(false))
                         .arg(
                             Arg::with_name("url")
                                 .long("url")
@@ -167,6 +189,8 @@ fn app() -> App<'static, 'static> {
                         )
                         .arg(args_ctx_username.clone())
                         .arg(args_ctx_password.clone())
+                        .arg(args_ctx_token.clone())
+                        .arg(args_ctx_kubernetes.clone())
                         .arg(args_ctx_default_tenant.clone())
                         .arg(args_ctx_api_flavor.clone()),
                 )
@@ -377,10 +401,12 @@ fn main() {
 
     let rc = run();
 
-    if rc.is_err() {
-        let err = rc.err().unwrap();
-
+    if let Err(err) = rc {
         eprintln!("{}", err);
+
+        if let Some(cause) = err.as_fail().cause() {
+            eprintln!("{}", cause);
+        }
 
         let backtrace = err.backtrace().to_string();
         if !backtrace.trim().is_empty() {

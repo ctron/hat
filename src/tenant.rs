@@ -15,7 +15,6 @@ use clap::{App, ArgMatches};
 
 use crate::context::{ApiFlavor, Context};
 use crate::help::help;
-use reqwest;
 
 use http::header::*;
 use http::method::Method;
@@ -42,39 +41,54 @@ static RESOURCE_NAME: &str = "devices";
 pub fn tenant(
     app: &mut App,
     matches: &ArgMatches,
-    _overrides: &Overrides,
+    overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
     match matches.subcommand() {
         ("create", Some(cmd_matches)) => tenant_create(
             context,
+            overrides,
             cmd_matches.value_of("tenant_name"),
             cmd_matches.value_of("payload"),
         )?,
         ("update", Some(cmd_matches)) => tenant_update(
             context,
+            overrides,
             cmd_matches.value_of("tenant_name").unwrap(),
             cmd_matches.value_of("payload"),
         )?,
-        ("get", Some(cmd_matches)) => {
-            tenant_get(context, cmd_matches.value_of("tenant_name").unwrap())?
-        }
-        ("delete", Some(cmd_matches)) => {
-            tenant_delete(context, cmd_matches.value_of("tenant_name").unwrap())?
-        }
-        ("enable", Some(cmd_matches)) => {
-            tenant_enable(context, cmd_matches.value_of("tenant_name").unwrap())?
-        }
-        ("disable", Some(cmd_matches)) => {
-            tenant_disable(context, cmd_matches.value_of("tenant_name").unwrap())?
-        }
+        ("get", Some(cmd_matches)) => tenant_get(
+            context,
+            overrides,
+            cmd_matches.value_of("tenant_name").unwrap(),
+        )?,
+        ("delete", Some(cmd_matches)) => tenant_delete(
+            context,
+            overrides,
+            cmd_matches.value_of("tenant_name").unwrap(),
+        )?,
+        ("enable", Some(cmd_matches)) => tenant_enable(
+            context,
+            overrides,
+            cmd_matches.value_of("tenant_name").unwrap(),
+        )?,
+        ("disable", Some(cmd_matches)) => tenant_disable(
+            context,
+            overrides,
+            cmd_matches.value_of("tenant_name").unwrap(),
+        )?,
         _ => help(app)?,
     };
 
     Ok(())
 }
 
-fn tenant_create(context: &Context, tenant: Option<&str>, payload: Option<&str>) -> Result<()> {
+fn tenant_create(
+    context: &Context,
+    overrides: &Overrides,
+    tenant: Option<&str>,
+    payload: Option<&str>,
+) -> Result<()> {
     if tenant.is_none() {
         // only works in the V1 api
         context.api_required(&[ApiFlavor::EclipseHonoV1])?;
@@ -87,11 +101,11 @@ fn tenant_create(context: &Context, tenant: Option<&str>, payload: Option<&str>)
         _ => serde_json::value::Map::new(),
     };
 
-    let client = reqwest::Client::new();
+    let client = context.create_client(overrides)?;
 
     let tenant = client
         .request(Method::POST, url)
-        .apply_auth(context)
+        .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .trace()
@@ -111,7 +125,12 @@ fn tenant_create(context: &Context, tenant: Option<&str>, payload: Option<&str>)
     Ok(())
 }
 
-fn tenant_update(context: &Context, tenant: &str, payload: Option<&str>) -> Result<()> {
+fn tenant_update(
+    context: &Context,
+    overrides: &Overrides,
+    tenant: &str,
+    payload: Option<&str>,
+) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
 
     let mut payload = match payload {
@@ -124,11 +143,11 @@ fn tenant_update(context: &Context, tenant: &str, payload: Option<&str>) -> Resu
         serde_json::value::to_value(tenant)?,
     );
 
-    let client = reqwest::Client::new();
+    let client = context.create_client(overrides)?;
 
     client
         .request(Method::PUT, url)
-        .apply_auth(context)
+        .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
         .json(&payload)
         .trace()
@@ -146,16 +165,17 @@ fn tenant_update(context: &Context, tenant: &str, payload: Option<&str>) -> Resu
     Ok(())
 }
 
-fn tenant_delete(context: &Context, tenant: &str) -> Result<()> {
+fn tenant_delete(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
-    resource_delete(&context, &url, "Tenant", tenant)
+    resource_delete(&context, overrides, &url, "Tenant", tenant)
 }
 
-fn tenant_enable(context: &Context, tenant: &str) -> Result<()> {
+fn tenant_enable(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(
         &context,
+        overrides,
         &url,
         &url,
         tenant,
@@ -170,11 +190,12 @@ fn tenant_enable(context: &Context, tenant: &str) -> Result<()> {
     Ok(())
 }
 
-fn tenant_disable(context: &Context, tenant: &str) -> Result<()> {
+fn tenant_disable(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(
         &context,
+        overrides,
         &url,
         &url,
         tenant,
@@ -189,7 +210,7 @@ fn tenant_disable(context: &Context, tenant: &str) -> Result<()> {
     Ok(())
 }
 
-fn tenant_get(context: &Context, tenant: &str) -> Result<()> {
+fn tenant_get(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
     let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
-    resource_get(&context, &url, "Tenant")
+    resource_get(&context, overrides, &url, "Tenant")
 }

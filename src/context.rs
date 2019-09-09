@@ -35,6 +35,9 @@ use std::fmt;
 
 use crate::Overrides;
 
+use crate::args::use_kubernetes;
+use crate::resource::Tracer;
+use crate::utils::Either;
 use ansi_term::Style;
 use colored_json::*;
 
@@ -73,6 +76,9 @@ pub struct Context {
     url: String,
     username: Option<String>,
     password: Option<String>,
+    token: Option<String>,
+    #[serde(default)]
+    use_kubernetes: bool,
     default_tenant: Option<String>,
     api_flavor: Option<ApiFlavor>,
 }
@@ -88,6 +94,14 @@ impl Context {
 
     pub fn password(&self) -> &Option<String> {
         &self.password
+    }
+
+    pub fn token(&self) -> &Option<String> {
+        &self.token
+    }
+
+    pub fn use_kubernetes(&self) -> bool {
+        self.use_kubernetes
     }
 
     #[allow(dead_code)]
@@ -124,6 +138,15 @@ impl Context {
         let msg = format!("Operation not supported by API: {}", our);
         Err(ErrorKind::GenericError(msg).into())
     }
+
+    pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
+        if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
+            let config = kube::config::load_kube_config()?;
+            Ok(config.client.trace())
+        } else {
+            Ok(reqwest::ClientBuilder::new().build()?)
+        }
+    }
 }
 
 pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> {
@@ -133,14 +156,18 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
             cmd_matches.value_of("url").unwrap(),
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
+            cmd_matches.value_of("token"),
+            use_kubernetes("kubernetes", cmd_matches).unwrap_or(false),
             cmd_matches.value_of("default_tenant"),
             value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
         ("update", Some(cmd_matches)) => context_update(
-            cmd_matches.value_of("context").unwrap(),
+            cmd_matches.value_of("context"),
             cmd_matches.value_of("url"),
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
+            cmd_matches.value_of("token"),
+            use_kubernetes("kubernetes", cmd_matches),
             cmd_matches.value_of("default_tenant"),
             value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
@@ -153,8 +180,11 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
     }
 }
 
-fn context_encode_file_name(context: &str) -> String {
-    utf8_percent_encode(context, DEFAULT_ENCODE_SET).collect()
+fn context_encode_file_name<S>(context: S) -> String
+where
+    S: Into<String>,
+{
+    utf8_percent_encode(&context.into(), DEFAULT_ENCODE_SET).collect()
 }
 
 fn context_decode_file_name(name: &str) -> Result<String, Utf8Error> {
@@ -173,16 +203,21 @@ fn context_contexts_dir() -> Result<PathBuf, error::Error> {
     context_config_dir().map(|path| path.join("contexts"))
 }
 
-fn context_file_path(context: &str) -> Result<PathBuf, error::Error> {
+fn context_file_path<S>(context: S) -> Result<PathBuf, error::Error>
+where
+    S: Into<String>,
+{
+    let context = context.into();
     let name = context.trim();
 
     if name.is_empty() {
-        return Err(ErrorKind::ContextNameError(context.to_string()).into());
+        return Err(ErrorKind::ContextNameError(context.into()).into());
     }
 
     context_contexts_dir().map(|path| path.join(context_encode_file_name(context)))
 }
 
+/// Load the provided context.
 fn context_load(context: &str) -> Result<Context, error::Error> {
     let file = File::open(context_file_path(context)?);
 
@@ -197,6 +232,7 @@ fn context_load(context: &str) -> Result<Context, error::Error> {
     }
 }
 
+/// Read the current selected context.
 fn context_get_current() -> Result<Option<String>, error::Error> {
     let path = context_config_dir().map(|path| path.join("current"))?;
 
@@ -211,18 +247,30 @@ fn context_get_current() -> Result<Option<String>, error::Error> {
     Ok(Some(current))
 }
 
+/// Loads the provided, or default context.
+fn context_load_or_current(name: Option<String>) -> Result<Context, error::Error> {
+    context_load_or_fail(name.or(context_get_current()?))
+}
+
+/// Loads the current (or overridde) context.
 pub fn context_load_current(overrides: Option<&Overrides>) -> Result<Context, error::Error> {
-    overrides
-        .and_then(|o| o.context())
-        .or(context_get_current()?)
-        .ok_or_else(|| {
-            ErrorKind::GenericError(
-                "No context selected. Create a first context or select an existing one."
-                    .to_string(),
-            )
-            .into()
-        })
-        .and_then(|current| context_load(current.as_str()))
+    context_load_or_current(overrides.and_then(Overrides::context))
+}
+
+/// Tests if the name contains a valid context name.
+/// [`None`] is never a valid name.
+fn context_names_valid(name: Option<String>) -> Result<String, error::Error> {
+    name.ok_or_else(|| {
+        ErrorKind::GenericError(
+            "No context selected. Create a first context or select an existing one.".to_string(),
+        )
+        .into()
+    })
+}
+
+/// Loads a context, if the name is valid.
+fn context_load_or_fail(name: Option<String>) -> Result<Context, error::Error> {
+    context_names_valid(name).and_then(|current| context_load(current.as_str()))
 }
 
 #[cfg(unix)]
@@ -275,6 +323,8 @@ fn context_create(
     url: &str,
     username: Option<&str>,
     password: Option<&str>,
+    token: Option<&str>,
+    use_kubernetes: bool,
     default_tenant: Option<&str>,
     api_flavor: Option<ApiFlavor>,
 ) -> Result<(), error::Error> {
@@ -286,9 +336,11 @@ fn context_create(
 
     let ctx = Context {
         url: url.into(),
-        username: username.map(|u| u.into()),
-        password: password.map(|p| p.into()),
-        default_tenant: default_tenant.map(|t| t.into()),
+        username: username.map(Into::into),
+        password: password.map(Into::into),
+        token: token.map(Into::into),
+        use_kubernetes,
+        default_tenant: default_tenant.map(Into::into),
         api_flavor,
     };
 
@@ -301,19 +353,44 @@ fn context_create(
 }
 
 fn context_update(
-    context: &str,
+    context: Option<&str>,
     url: Option<&str>,
     username: Option<&str>,
     password: Option<&str>,
+    token: Option<&str>,
+    use_kubernetes: Option<bool>,
     default_tenant: Option<&str>,
     api_flavor: Option<ApiFlavor>,
 ) -> Result<(), error::Error> {
-    let mut ctx = context_load(context)?;
+    let context = match context {
+        Some(c) => {
+            println!("Updating context: '{}':", c);
+            Some(c.to_string())
+        }
+        None => {
+            let ctx = context_get_current()?;
+            if let Some(ref c) = ctx {
+                println!("Updating current context: '{}':", c);
+            }
+            ctx
+        }
+    };
+    let context = context_names_valid(context)?;
+
+    let mut ctx = context_load(context.as_str())?;
 
     if url.is_some() {
         context_validate_url(url.unwrap())?;
         ctx.url = url.unwrap().into();
-        println!("Updated context '{}' URL to: {}", context, ctx.url);
+        println!("\tSetting URL to: {}", ctx.url);
+    }
+
+    if let Some(k) = use_kubernetes {
+        ctx.use_kubernetes = k;
+        println!(
+            "\t{}using local Kubernetes config",
+            ctx.use_kubernetes.either("", "NOT ")
+        );
     }
 
     if let Some(u) = username {
@@ -323,7 +400,7 @@ fn context_update(
             ctx.username = Some(u.into());
         }
 
-        println!("Updated context '{}' set username to: {}", context, u);
+        println!("\tSetting username to: {}", u);
     }
 
     if let Some(p) = password {
@@ -333,7 +410,17 @@ fn context_update(
             ctx.password = Some(p.into());
         }
 
-        println!("Updated context '{}' set password", context);
+        println!("\tSetting password");
+    }
+
+    if let Some(p) = token {
+        if p.is_empty() {
+            ctx.token = None;
+        } else {
+            ctx.token = Some(p.into());
+        }
+
+        println!("\tSetting token");
     }
 
     if let Some(t) = default_tenant {
@@ -343,15 +430,15 @@ fn context_update(
             ctx.default_tenant = Some(t.into());
         }
 
-        println!("Updated context '{}' set default tenant to: {}", context, t);
+        println!("\tSetting default tenant to: {}", t);
     }
 
     if let Some(a) = api_flavor {
         ctx.api_flavor = Some(a.clone());
-        println!("Updated context '{}' set API flavor to: {}", context, a);
+        println!("\t Setting API flavor to: {}", a);
     }
 
-    context_store(context, ctx)?;
+    context_store(&context, ctx)?;
 
     Ok(())
 }
@@ -403,6 +490,14 @@ fn context_show() -> Result<(), error::Error> {
     println!(
         "       Password: {}",
         ctx.password.and(Some("***")).unwrap_or("<none>")
+    );
+    println!(
+        "          Token: {}",
+        ctx.token.unwrap_or_else(|| String::from("<none>"))
+    );
+    println!(
+        " Use Kubernetes: {}",
+        ctx.use_kubernetes.either("yes", "no")
     );
     println!(
         " Default tenant: {}",
