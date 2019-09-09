@@ -99,6 +99,12 @@ fn app() -> App<'static, 'static> {
         .help("ID of the device")
         .required(false);
     let args_device_payload = Arg::with_name("payload").help("Device payload");
+    let args_device_via = Arg::with_name("via")
+        .help("Gateways of the device")
+        .empty_values(false)
+        .multiple(true)
+        .takes_value(true)
+        .required(false);
 
     // credentials
 
@@ -270,6 +276,12 @@ fn app() -> App<'static, 'static> {
                         .about("Update an existing device registration")
                         .arg(args_device.clone())
                         .arg(args_device_payload.clone()),
+                )
+                .subcommand(
+                    SubCommand::with_name("set-via")
+                        .about("Set the gateway configuration")
+                        .arg(args_device.clone())
+                        .arg(args_device_via.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("delete")

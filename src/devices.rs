@@ -38,6 +38,7 @@ type Result<T> = std::result::Result<T, error::Error>;
 const RESOURCE_NAME: &str = "devices";
 const RESOURCE_LABEL: &str = "Device";
 const PROP_ENABLED: &str = "enabled";
+const PROP_VIA: &str = "via";
 
 pub fn registration(
     app: &mut App,
@@ -75,6 +76,12 @@ pub fn registration(
             overrides,
             cmd_matches.value_of("device").unwrap(),
             false,
+        )?,
+        ("set-via", Some(cmd_matches)) => registration_via(
+            context,
+            overrides,
+            cmd_matches.value_of("device").unwrap(),
+            cmd_matches.values_of("via"),
         )?,
         _ => help(app)?,
     };
@@ -211,6 +218,60 @@ fn registration_enable(
         device,
         status.either("enabled", "disabled")
     );
+
+    Ok(())
+}
+
+fn registration_url<S>(context: &Context, overrides: &Overrides, device: S) -> Result<url::Url>
+where
+    S: Into<String>,
+{
+    resource_url(
+        context,
+        RESOURCE_NAME,
+        &[&context.make_tenant(overrides)?, &device.into()],
+    )
+}
+
+fn registration_via(
+    context: &Context,
+    overrides: &Overrides,
+    device: &str,
+    via: Option<clap::Values>,
+) -> Result<()> {
+    let url = registration_url(context, overrides, device)?;
+
+    resource_modify(
+        &context,
+        overrides,
+        &url,
+        &url,
+        RESOURCE_LABEL,
+        |reg: &mut Map<String, Value>| {
+            match via {
+                None => {
+                    reg.remove(PROP_VIA.into());
+                }
+                Some(ref v) => {
+                    let json = serde_json::value::to_value::<Vec<&str>>(v.clone().collect())?;
+                    reg.insert(PROP_VIA.into(), json);
+                }
+            };
+
+            Ok(())
+        },
+    )?;
+
+    match via {
+        None => println!("Gateways cleared for device {}", device),
+        Some(v) => {
+            println!(
+                "Gateway(s) set for device {} {:#?}",
+                device,
+                v.collect::<Vec<&str>>()
+            );
+        }
+    }
 
     Ok(())
 }
