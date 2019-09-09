@@ -16,7 +16,7 @@ matrix:
         - docker pull centos:7
       script:
         - pwd
-        - docker run -v $PWD:/mnt --rm -t centos:7 bash -c "yum -y groupinstall 'Development Tools' && yum install -y libunwind-devel && curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain "$TRAVIS_RUST_VERSION" && source ~/.cargo/env && cd /mnt && cargo test --verbose && if test -n \"$TRAVIS_TAG\"; then cargo build --release; fi"
+        - docker run -v $PWD:/mnt --rm -t centos:7 bash -c "yum -y groupinstall 'Development Tools' && yum install -y libunwind-devel openssl-devel && curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain "$TRAVIS_RUST_VERSION" && source ~/.cargo/env && cd /mnt && cargo test --verbose && if test -n \"$TRAVIS_TAG\"; then cargo build --release; fi"
       after_success:
         - if test -n "$TRAVIS_TAG"; then ( cd target/release && tar cvzf ../../hono-admin-tool-${TRAVIS_TAG}-linux-64bit.tar.gz hat ); fi
     - os: osx
