@@ -139,10 +139,20 @@ impl Context {
         Err(ErrorKind::GenericError(msg).into())
     }
 
+    #[cfg(not(windows))]
     pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
         if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
             let config = kube::config::load_kube_config()?;
             Ok(config.client.trace())
+        } else {
+            Ok(reqwest::ClientBuilder::new().build()?)
+        }
+    }
+
+    #[cfg(windows)]
+    pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
+        if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
+            Err(ErrorKind::GenericError("Kubernetes is not supported on Windows".into()).into())
         } else {
             Ok(reqwest::ClientBuilder::new().build()?)
         }
@@ -211,7 +221,7 @@ where
     let name = context.trim();
 
     if name.is_empty() {
-        return Err(ErrorKind::ContextNameError(context.into()).into());
+        return Err(ErrorKind::ContextNameError(context).into());
     }
 
     context_contexts_dir().map(|path| path.join(context_encode_file_name(context)))

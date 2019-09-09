@@ -185,7 +185,7 @@ impl From<bcrypt::BcryptError> for Error {
 impl From<kube::Error> for Error {
     fn from(err: kube::Error) -> Error {
         Error {
-            inner: err.context(ErrorKind::KubeError).into(),
+            inner: err.context(ErrorKind::KubeError),
         }
     }
 }
