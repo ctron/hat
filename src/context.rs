@@ -35,7 +35,7 @@ use std::fmt;
 
 use crate::Overrides;
 
-use crate::args::use_kubernetes;
+use crate::args::flag_arg;
 use crate::resource::Tracer;
 use crate::utils::Either;
 use ansi_term::Style;
@@ -79,6 +79,8 @@ pub struct Context {
     token: Option<String>,
     #[serde(default)]
     use_kubernetes: bool,
+    #[serde(default)]
+    insecure: bool,
     default_tenant: Option<String>,
     api_flavor: Option<ApiFlavor>,
 }
@@ -102,6 +104,11 @@ impl Context {
 
     pub fn use_kubernetes(&self) -> bool {
         self.use_kubernetes
+    }
+
+    #[allow(dead_code)]
+    pub fn insecure(&self) -> bool {
+        self.insecure
     }
 
     #[allow(dead_code)]
@@ -139,13 +146,31 @@ impl Context {
         Err(ErrorKind::GenericError(msg).into())
     }
 
+    fn apply_common_config(
+        &self,
+        client_builder: reqwest::ClientBuilder,
+        overrides: &Overrides,
+    ) -> reqwest::ClientBuilder {
+        let client_builder = if overrides.insecure().unwrap_or(self.insecure) {
+            client_builder
+                .danger_accept_invalid_certs(true)
+                .danger_accept_invalid_hostnames(true)
+        } else {
+            client_builder
+        };
+
+        client_builder
+    }
+
     #[cfg(not(windows))]
     pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
         if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
             let config = kube::config::load_kube_config()?;
             Ok(config.client.trace())
         } else {
-            Ok(reqwest::ClientBuilder::new().build()?)
+            Ok(self
+                .apply_common_config(reqwest::ClientBuilder::new(), overrides)
+                .build()?)
         }
     }
 
@@ -154,7 +179,9 @@ impl Context {
         if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
             Err(ErrorKind::GenericError("Kubernetes is not supported on Windows".into()).into())
         } else {
-            Ok(reqwest::ClientBuilder::new().build()?)
+            Ok(self
+                .apply_common_config(reqwest::ClientBuilder::new(), overrides)
+                .build()?)
         }
     }
 }
@@ -167,7 +194,8 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
             cmd_matches.value_of("token"),
-            use_kubernetes("kubernetes", cmd_matches).unwrap_or(false),
+            flag_arg("kubernetes", cmd_matches).unwrap_or(false),
+            flag_arg("insecure", cmd_matches).unwrap_or(false),
             cmd_matches.value_of("default_tenant"),
             value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
@@ -177,7 +205,8 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
             cmd_matches.value_of("token"),
-            use_kubernetes("kubernetes", cmd_matches),
+            flag_arg("kubernetes", cmd_matches),
+            flag_arg("insecure", cmd_matches),
             cmd_matches.value_of("default_tenant"),
             value_t!(cmd_matches.value_of("api_flavor"), ApiFlavor).ok(),
         ),
@@ -335,6 +364,7 @@ fn context_create(
     password: Option<&str>,
     token: Option<&str>,
     use_kubernetes: bool,
+    insecure: bool,
     default_tenant: Option<&str>,
     api_flavor: Option<ApiFlavor>,
 ) -> Result<(), error::Error> {
@@ -350,6 +380,7 @@ fn context_create(
         password: password.map(Into::into),
         token: token.map(Into::into),
         use_kubernetes,
+        insecure,
         default_tenant: default_tenant.map(Into::into),
         api_flavor,
     };
@@ -369,6 +400,7 @@ fn context_update(
     password: Option<&str>,
     token: Option<&str>,
     use_kubernetes: Option<bool>,
+    insecure: Option<bool>,
     default_tenant: Option<&str>,
     api_flavor: Option<ApiFlavor>,
 ) -> Result<(), error::Error> {
@@ -400,6 +432,14 @@ fn context_update(
         println!(
             "\t{}using local Kubernetes config",
             ctx.use_kubernetes.either("", "NOT ")
+        );
+    }
+
+    if let Some(i) = insecure {
+        ctx.insecure = i;
+        println!(
+            "\t{}validating TLS certificate and hostname",
+            ctx.insecure.either("NOT ", "")
         );
     }
 
@@ -509,6 +549,7 @@ fn context_show() -> Result<(), error::Error> {
         " Use Kubernetes: {}",
         ctx.use_kubernetes.either("yes", "no")
     );
+    println!("   Insecure TLS: {}", ctx.insecure.either("yes", "no"));
     println!(
         " Default tenant: {}",
         ctx.default_tenant.unwrap_or_else(|| String::from("<none>"))

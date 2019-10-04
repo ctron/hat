@@ -13,7 +13,7 @@
 
 use crate::utils::Either;
 
-pub fn use_kubernetes(name: &str, matches: &clap::ArgMatches) -> Option<bool> {
+pub fn flag_arg(name: &str, matches: &clap::ArgMatches) -> Option<bool> {
     matches.is_present(name).either(
         Some(matches.value_of(name).map_or(true, map_switch_value)),
         None,
@@ -32,7 +32,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_use_kubernetes() {
+    fn test_flag_arg() {
         let app = clap::App::new("test").arg(
             clap::Arg::with_name("k")
                 .short("k")
@@ -42,16 +42,15 @@ mod tests {
         );
 
         let m = app.clone().get_matches_from(vec!["test"]);
-        assert_eq!(use_kubernetes("k", &m), None);
+        assert_eq!(flag_arg("k", &m), None);
 
         let m = app.clone().get_matches_from(vec!["test", "-k"]);
-        assert_eq!(use_kubernetes("k", &m), Some(true));
+        assert_eq!(flag_arg("k", &m), Some(true));
 
         let m = app.clone().get_matches_from(vec!["test", "-k=false"]);
-        assert_eq!(use_kubernetes("k", &m), Some(false));
+        assert_eq!(flag_arg("k", &m), Some(false));
 
         let m = app.clone().get_matches_from(vec!["test", "-k=true"]);
-        assert_eq!(use_kubernetes("k", &m), Some(true));
+        assert_eq!(flag_arg("k", &m), Some(true));
     }
-
 }

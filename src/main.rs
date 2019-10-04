@@ -41,6 +41,14 @@ mod tenant;
 mod utils;
 
 fn app() -> App<'static, 'static> {
+    // globals
+    let args_global_insecure = Arg::with_name("insecure")
+        .help("Ignore TLS certificate and hostname (INSECURE!)")
+        .global(true)
+        .long("insecure")
+        .min_values(0)
+        .max_values(1);
+
     // context
 
     let args_ctx = Arg::with_name("context")
@@ -167,6 +175,7 @@ fn app() -> App<'static, 'static> {
         .arg(args_override_tenant.clone())
         .arg(args_override_context.clone())
         .arg(args_override_kubernetes.clone())
+        .arg(args_global_insecure.clone())
         .subcommand(
             SubCommand::with_name("context")
                 .about("Work with contexts")
