@@ -32,8 +32,8 @@ rand = "0.6"
 sha2 = "0.8"
 bcrypt = "0.5"
 
-colored_json = "1.0"
-ansi_term = "0.11"
+colored_json = "2.1"
+ansi_term = "0.12"
 
 # kube requires openssl, which is an issue on Windows
 [target.'cfg(not(windows))'.dependencies]
