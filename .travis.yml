@@ -27,6 +27,12 @@ matrix:
         - find /c/ -name "*.msm"
         - choco install nuget.commandline
         - nuget install WiX -version 3.11.1
+        - git clone https://github.com/Microsoft/vcpkg /c/projects/vcpkg
+        - cd /c/projects/vcpkg
+        - cmd /c "C:\projects\vcpkg\bootstrap-vcpkg.bat"
+        - cd ..
+        - export VCPKG_ROOT="c:\projects\vcpkg"
+        - echo yes > "$VCPKG_ROOT/Downloads/AlwaysAllowDownloads"
       script:
         - cargo test --release --verbose
         - cargo build --release
