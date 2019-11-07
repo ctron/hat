@@ -182,7 +182,6 @@ impl From<bcrypt::BcryptError> for Error {
     }
 }
 
-#[cfg(not(windows))]
 impl From<kube::Error> for Error {
     fn from(err: kube::Error) -> Error {
         Error {

@@ -35,6 +35,4 @@ bcrypt = "0.5"
 colored_json = "2.1"
 ansi_term = "0.12"
 
-# kube requires openssl, which is an issue on Windows
-[target.'cfg(not(windows))'.dependencies]
 kube = "0.17.1"

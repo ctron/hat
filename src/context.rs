@@ -162,7 +162,6 @@ impl Context {
         client_builder
     }
 
-    #[cfg(not(windows))]
     pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
         let builder = if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
             let result = kube::config::create_client_builder(Default::default())?;
@@ -175,17 +174,6 @@ impl Context {
             .apply_common_config(builder, overrides)
             .build()?
             .trace())
-    }
-
-    #[cfg(windows)]
-    pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
-        if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
-            Err(ErrorKind::GenericError("Kubernetes is not supported on Windows".into()).into())
-        } else {
-            Ok(self
-                .apply_common_config(reqwest::ClientBuilder::new(), overrides)
-                .build()?)
-        }
     }
 }
 
