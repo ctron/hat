@@ -164,14 +164,17 @@ impl Context {
 
     #[cfg(not(windows))]
     pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
-        if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
-            let config = kube::config::load_kube_config()?;
-            Ok(config.client.trace())
+        let builder = if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
+            let result = kube::config::create_client_builder(Default::default())?;
+            result.0
         } else {
-            Ok(self
-                .apply_common_config(reqwest::ClientBuilder::new(), overrides)
-                .build()?)
-        }
+            reqwest::ClientBuilder::new()
+        };
+
+        Ok(self
+            .apply_common_config(builder, overrides)
+            .build()?
+            .trace())
     }
 
     #[cfg(windows)]
