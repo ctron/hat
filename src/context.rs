@@ -86,8 +86,9 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn to_url(&self) -> Result<url::Url, url::ParseError> {
-        Url::parse(&self.url)
+    pub fn to_url(&self, overrides: &Overrides) -> Result<url::Url, url::ParseError> {
+        let url = overrides.url().unwrap_or(&self.url);
+        Url::parse(url)
     }
 
     pub fn username(&self) -> &Option<String> {

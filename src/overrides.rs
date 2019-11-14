@@ -15,6 +15,7 @@ use crate::args::flag_arg;
 
 pub struct Overrides {
     context: Option<String>,
+    url: Option<String>,
     tenant: Option<String>,
     use_kubernetes: Option<bool>,
     insecure: Option<bool>,
@@ -23,6 +24,9 @@ pub struct Overrides {
 impl Overrides {
     pub fn context(&self) -> Option<String> {
         self.context.clone()
+    }
+    pub fn url(&self) -> Option<&String> {
+        self.url.as_ref()
     }
     pub fn tenant(&self) -> Option<String> {
         self.tenant.clone()
@@ -41,6 +45,7 @@ impl<'a> From<&'a clap::ArgMatches<'a>> for Overrides {
             context: matches
                 .value_of("context-override")
                 .map(ToString::to_string),
+            url: matches.value_of("url-override").map(ToString::to_string),
             tenant: matches.value_of("tenant-override").map(ToString::to_string),
             use_kubernetes: flag_arg("kubernetes-override", matches),
             insecure: flag_arg("insecure", matches),

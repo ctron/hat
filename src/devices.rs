@@ -101,7 +101,7 @@ fn registration_create(
     }
 
     let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant])?;
+    let url = resource_url(context, overrides, RESOURCE_NAME, &[&tenant])?;
 
     let url = resource_append_path(url, device)?;
 
@@ -141,7 +141,12 @@ fn registration_update(
     payload: Option<&str>,
 ) -> Result<()> {
     let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
+    let url = resource_url(
+        context,
+        overrides,
+        RESOURCE_NAME,
+        &[&tenant, &device.into()],
+    )?;
 
     let payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -174,6 +179,7 @@ fn registration_update(
 fn registration_delete(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
     let url = resource_url(
         context,
+        overrides,
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
@@ -183,6 +189,7 @@ fn registration_delete(context: &Context, overrides: &Overrides, device: &str) -
 fn registration_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
     let url = resource_url(
         context,
+        overrides,
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
@@ -197,6 +204,7 @@ fn registration_enable(
 ) -> Result<()> {
     let url = resource_url(
         context,
+        overrides,
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
@@ -228,6 +236,7 @@ where
 {
     resource_url(
         context,
+        overrides,
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )

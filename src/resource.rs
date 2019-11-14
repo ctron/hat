@@ -93,12 +93,17 @@ impl Tracer for std::result::Result<reqwest::Response, reqwest::Error> {
     }
 }
 
-pub fn resource_url<S>(context: &Context, resource: &str, segments: S) -> Result<url::Url>
+pub fn resource_url<S>(
+    context: &Context,
+    overrides: &Overrides,
+    resource: &str,
+    segments: S,
+) -> Result<url::Url>
 where
     S: IntoIterator,
     S::Item: AsRef<str>,
 {
-    resource_url_query(context, resource, segments, None)
+    resource_url_query(context, overrides, resource, segments, None)
 }
 
 pub fn resource_append_path<S>(url: url::Url, segments: S) -> Result<url::Url>
@@ -120,6 +125,7 @@ where
 
 pub fn resource_url_query<S>(
     context: &Context,
+    overrides: &Overrides,
     resource: &str,
     segments: S,
     query: Option<&HashMap<String, String>>,
@@ -128,7 +134,7 @@ where
     S: IntoIterator,
     S::Item: AsRef<str>,
 {
-    let url = context.to_url()?;
+    let url = context.to_url(overrides)?;
     let url = resource_append_path(url, Some(resource))?;
     let mut url = resource_append_path(url, segments)?;
 

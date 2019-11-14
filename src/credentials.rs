@@ -106,7 +106,12 @@ fn credentials_set(
     payload: Option<&str>,
 ) -> Result<()> {
     let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
+    let url = resource_url(
+        context,
+        overrides,
+        RESOURCE_NAME,
+        &[&tenant, &device.into()],
+    )?;
 
     let payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -142,7 +147,12 @@ fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Re
     }
 
     let tenant = context.make_tenant(overrides)?;
-    let url = resource_url(context, RESOURCE_NAME, &[&tenant, &device.into()])?;
+    let url = resource_url(
+        context,
+        overrides,
+        RESOURCE_NAME,
+        &[&tenant, &device.into()],
+    )?;
 
     resource_get(&context, overrides, &url, "Credentials")
 }
@@ -150,6 +160,7 @@ fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Re
 fn credentials_url(context: &Context, overrides: &Overrides, device: &str) -> Result<url::Url> {
     resource_url(
         context,
+        overrides,
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )

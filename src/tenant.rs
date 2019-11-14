@@ -94,7 +94,7 @@ fn tenant_create(
         context.api_required(&[ApiFlavor::EclipseHonoV1])?;
     }
 
-    let url = resource_url(context, RESOURCE_NAME, tenant)?;
+    let url = resource_url(context, overrides, RESOURCE_NAME, tenant)?;
 
     let payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -131,7 +131,7 @@ fn tenant_update(
     tenant: &str,
     payload: Option<&str>,
 ) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
+    let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
 
     let mut payload = match payload {
         Some(_) => serde_json::from_str(payload.unwrap())?,
@@ -166,12 +166,12 @@ fn tenant_update(
 }
 
 fn tenant_delete(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
+    let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
     resource_delete(&context, overrides, &url, "Tenant", tenant)
 }
 
 fn tenant_enable(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
+    let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(
         &context,
@@ -191,7 +191,7 @@ fn tenant_enable(context: &Context, overrides: &Overrides, tenant: &str) -> Resu
 }
 
 fn tenant_disable(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
+    let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(
         &context,
@@ -211,6 +211,6 @@ fn tenant_disable(context: &Context, overrides: &Overrides, tenant: &str) -> Res
 }
 
 fn tenant_get(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
-    let url = resource_url(context, RESOURCE_NAME, Some(tenant))?;
+    let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
     resource_get(&context, overrides, &url, "Tenant")
 }

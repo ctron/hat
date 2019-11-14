@@ -134,6 +134,12 @@ fn app() -> App<'static, 'static> {
 
     // overrides
 
+    let args_override_url = Arg::with_name("url-override")
+        .help("Override the URL")
+        .global(true)
+        .short("U")
+        .number_of_values(1);
+
     let args_override_tenant = Arg::with_name("tenant-override")
         .help("Override the default tenant")
         .global(true)
@@ -156,6 +162,13 @@ fn app() -> App<'static, 'static> {
         .min_values(0)
         .max_values(1);
 
+    let args_overrides = [
+        args_override_context,
+        args_override_kubernetes,
+        args_override_tenant,
+        args_override_url,
+    ];
+
     // main app
 
     App::new("Hono Admin Tool")
@@ -172,9 +185,7 @@ fn app() -> App<'static, 'static> {
                 .long("verbose")
                 .multiple(true),
         )
-        .arg(args_override_tenant.clone())
-        .arg(args_override_context.clone())
-        .arg(args_override_kubernetes.clone())
+        .args(&args_overrides.clone())
         .arg(args_global_insecure.clone())
         .subcommand(
             SubCommand::with_name("context")
