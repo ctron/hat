@@ -304,18 +304,9 @@ fn new_credential(type_name: &str, auth_id: &str) -> Value {
 fn new_secret(plain_password: &str, hash_function: &HashFunction) -> Result<Value> {
     let mut new_pair = Map::new();
 
-    // hash it
-
-    let hash = hash_function.hash(&plain_password)?;
-
     // put to result
 
-    new_pair.insert("hash-function".into(), hash_function.name().into());
-    new_pair.insert("pwd-hash".into(), hash.0.into());
-
-    if let Some(salt) = hash.1 {
-        new_pair.insert("salt".into(), salt.into());
-    }
+    hash_function.insert(&mut new_pair, &plain_password)?;
 
     // return as value
 

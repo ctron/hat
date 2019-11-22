@@ -512,7 +512,7 @@ dependencies = [
 
 [[package]]
 name = "hat"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -19,7 +19,10 @@ use rand::RngCore;
 
 use std::fmt;
 
+use serde_json::value::{Map, Value};
+
 pub enum HashFunction {
+    Plain,
     Sha256,
     Sha512,
     Bcrypt(u8),
@@ -33,6 +36,7 @@ impl std::str::FromStr for HashFunction {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
+            "plain" => Ok(HashFunction::Plain),
             "sha-256" => Ok(HashFunction::Sha256),
             "sha-512" => Ok(HashFunction::Sha512),
             "bcrypt" => Ok(HashFunction::Bcrypt(10)),
@@ -44,6 +48,7 @@ impl std::str::FromStr for HashFunction {
 impl fmt::Display for HashFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            HashFunction::Plain => write!(f, "plain"),
             HashFunction::Sha256 => write!(f, "sha-256"),
             HashFunction::Sha512 => write!(f, "sha-512"),
             HashFunction::Bcrypt(i) => write!(f, "bcrypt:{}", i),
@@ -80,6 +85,7 @@ fn gen_salt(size: usize) -> Vec<u8> {
 impl HashFunction {
     pub fn name(&self) -> &str {
         match self {
+            HashFunction::Plain => "plain",
             HashFunction::Sha256 => "sha-256",
             HashFunction::Sha512 => "sha-512",
             HashFunction::Bcrypt(_) => "bcrypt", // we omit the iterations here
@@ -103,11 +109,41 @@ impl HashFunction {
         }
     }
 
-    pub fn hash(&self, password: &str) -> Result<(String, Option<String>)> {
+    fn insert_hash<D: Digest + Default>(
+        &self,
+        new_pair: &mut Map<String, Value>,
+        password: &str,
+    ) -> Result<()> {
+        new_pair.insert("hash-function".into(), self.name().into());
+        let r = do_hash::<D>(gen_salt(16).as_slice(), password);
+        new_pair.insert("pwd-hash".into(), r.0.into());
+        if let Some(salt) = r.1 {
+            new_pair.insert("salt".into(), salt.into());
+        }
+        Ok(())
+    }
+
+    fn insert_bcrypt(
+        &self,
+        new_pair: &mut Map<String, Value>,
+        password: &str,
+        i: u8,
+    ) -> Result<()> {
+        new_pair.insert("hash-function".into(), self.name().into());
+        let r = do_bcrypt(password, i)?;
+        new_pair.insert("pwd-hash".into(), r.0.into());
+        Ok(())
+    }
+
+    pub fn insert(&self, new_pair: &mut Map<String, Value>, password: &str) -> Result<()> {
         match self {
-            HashFunction::Sha256 => Ok(do_hash::<Sha256>(gen_salt(16).as_slice(), password)),
-            HashFunction::Sha512 => Ok(do_hash::<Sha512>(gen_salt(16).as_slice(), password)),
-            HashFunction::Bcrypt(i) => do_bcrypt(password, *i),
+            HashFunction::Plain => {
+                new_pair.insert("pwd-plain".into(), password.into());
+                Ok(())
+            }
+            HashFunction::Sha256 => self.insert_hash::<Sha256>(new_pair, password),
+            HashFunction::Sha512 => self.insert_hash::<Sha512>(new_pair, password),
+            HashFunction::Bcrypt(i) => self.insert_bcrypt(new_pair, password, *i),
         }
     }
 }

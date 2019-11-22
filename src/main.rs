@@ -129,7 +129,7 @@ fn app() -> App<'static, 'static> {
         .long("hash")
         .required(true)
         .takes_value(true)
-        .help("Password hash function [possible values: sha-256, sha-512, bcrypt<:iterations>]")
+        .help("Password hash function [possible values: plain, sha-256, sha-512, bcrypt<:iterations>]")
         .default_value("bcrypt");
 
     // overrides
