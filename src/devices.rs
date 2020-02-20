@@ -47,6 +47,8 @@ pub fn registration(
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
+    let client = Client::new(context, overrides)?;
+
     match matches.subcommand() {
         ("create", Some(cmd_matches)) => registration_create(
             context,

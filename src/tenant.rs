@@ -30,6 +30,7 @@ use crate::resource::{
     resource_modify, resource_url, AuthExt,
 };
 
+use crate::client::Client;
 use crate::overrides::Overrides;
 use crate::resource::Tracer;
 
@@ -44,6 +45,8 @@ pub fn tenant(
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
+    let client = Client::new(context, overrides)?;
+
     match matches.subcommand() {
         ("create", Some(cmd_matches)) => tenant_create(
             context,
@@ -68,11 +71,13 @@ pub fn tenant(
             cmd_matches.value_of("tenant_name").unwrap(),
         )?,
         ("enable", Some(cmd_matches)) => tenant_enable(
+            &client,
             context,
             overrides,
             cmd_matches.value_of("tenant_name").unwrap(),
         )?,
         ("disable", Some(cmd_matches)) => tenant_disable(
+            &client,
             context,
             overrides,
             cmd_matches.value_of("tenant_name").unwrap(),
@@ -170,12 +175,17 @@ fn tenant_delete(context: &Context, overrides: &Overrides, tenant: &str) -> Resu
     resource_delete(&context, overrides, &url, "Tenant", tenant)
 }
 
-fn tenant_enable(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
+fn tenant_enable(
+    client: &Client,
+    context: &Context,
+    overrides: &Overrides,
+    tenant: &str,
+) -> Result<()> {
     let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(
+        client,
         &context,
-        overrides,
         &url,
         &url,
         tenant,
@@ -190,12 +200,17 @@ fn tenant_enable(context: &Context, overrides: &Overrides, tenant: &str) -> Resu
     Ok(())
 }
 
-fn tenant_disable(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
+fn tenant_disable(
+    client: &Client,
+    context: &Context,
+    overrides: &Overrides,
+    tenant: &str,
+) -> Result<()> {
     let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
 
     resource_modify(
+        client,
         &context,
-        overrides,
         &url,
         &url,
         tenant,
