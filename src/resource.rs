@@ -25,6 +25,7 @@ use crate::error::ErrorKind::{MalformedRequest, NotFound, Response, UnexpectedRe
 use crate::context::Context;
 use crate::error;
 
+use crate::client::Client;
 use crate::output::display_json_value;
 use crate::overrides::Overrides;
 use serde::de::DeserializeOwned;
@@ -203,8 +204,8 @@ pub fn resource_get(
 }
 
 pub fn resource_modify_with_create<C, F, T>(
+    client: &Client,
     context: &Context,
-    overrides: &Overrides,
     read_url: &Url,
     update_url: &Url,
     resource_name: &str,
@@ -216,11 +217,10 @@ where
     C: Fn() -> Result<T>,
     T: Serialize + DeserializeOwned + std::fmt::Debug,
 {
-    let client = context.create_client(overrides)?;
-
     // get
 
     let mut response = client
+        .client
         .request(Method::GET, read_url.clone())
         .apply_auth(context)?
         .trace()
@@ -249,6 +249,7 @@ where
     // update
 
     client
+        .client
         .request(Method::PUT, update_url.clone())
         .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
@@ -271,8 +272,8 @@ pub fn resource_err_bad_request<T>(response: &mut reqwest::Response) -> Result<T
 }
 
 pub fn resource_modify<F, T>(
+    client: &Client,
     context: &Context,
-    overrides: &Overrides,
     read_url: &Url,
     update_url: &Url,
     resource_name: &str,
@@ -283,8 +284,8 @@ where
     T: Serialize + DeserializeOwned + std::fmt::Debug,
 {
     resource_modify_with_create(
+        client,
         context,
-        overrides,
         read_url,
         update_url,
         resource_name,

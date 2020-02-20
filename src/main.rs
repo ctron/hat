@@ -39,6 +39,7 @@ mod overrides;
 mod resource;
 mod tenant;
 mod utils;
+mod client;
 
 fn app() -> App<'static, 'static> {
     // globals

@@ -27,6 +27,7 @@ use crate::error::ErrorKind::*;
 
 use crate::utils::Either;
 
+use crate::client::Client;
 use crate::overrides::Overrides;
 use crate::resource::Tracer;
 use crate::resource::{
@@ -78,6 +79,7 @@ pub fn registration(
             false,
         )?,
         ("set-via", Some(cmd_matches)) => registration_via(
+            &client,
             context,
             overrides,
             cmd_matches.value_of("device").unwrap(),
@@ -202,6 +204,8 @@ fn registration_enable(
     device: &str,
     status: bool,
 ) -> Result<()> {
+    let client = Client::new(context, overrides)?;
+
     let url = resource_url(
         context,
         overrides,
@@ -210,8 +214,8 @@ fn registration_enable(
     )?;
 
     resource_modify(
+        &client,
         &context,
-        overrides,
         &url,
         &url,
         RESOURCE_LABEL,
@@ -243,6 +247,7 @@ where
 }
 
 fn registration_via(
+    client: &Client,
     context: &Context,
     overrides: &Overrides,
     device: &str,
@@ -251,8 +256,8 @@ fn registration_via(
     let url = registration_url(context, overrides, device)?;
 
     resource_modify(
+        client,
         &context,
-        overrides,
         &url,
         &url,
         RESOURCE_LABEL,

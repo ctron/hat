@@ -33,6 +33,7 @@ use crate::resource::{
 
 use serde_json::value::{Map, Value};
 
+use crate::client::Client;
 use crate::overrides::Overrides;
 
 type Result<T> = std::result::Result<T, error::Error>;
@@ -46,6 +47,8 @@ pub fn credentials(
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
+    let client = Client::new(context, overrides)?;
+
     match matches.subcommand() {
         ("set", Some(cmd_matches)) => credentials_set(
             context,
@@ -57,6 +60,7 @@ pub fn credentials(
             credentials_get(context, overrides, cmd_matches.value_of("device").unwrap())?
         }
         ("add-password", Some(cmd_matches)) => credentials_add_password(
+            &client,
             context,
             overrides,
             cmd_matches.value_of("device").unwrap(),
@@ -66,6 +70,7 @@ pub fn credentials(
             false,
         )?,
         ("set-password", Some(cmd_matches)) => credentials_add_password(
+            &client,
             context,
             overrides,
             cmd_matches.value_of("device").unwrap(),
@@ -79,6 +84,7 @@ pub fn credentials(
             let expected_auth_id = cmd_matches.value_of("auth-id").unwrap();
 
             credentials_delete(
+                &client,
                 context,
                 overrides,
                 cmd_matches.value_of("device").unwrap(),
@@ -88,6 +94,7 @@ pub fn credentials(
             )?
         }
         ("delete-all", Some(cmd_matches)) => credentials_delete(
+            &client,
             context,
             overrides,
             cmd_matches.value_of("device").unwrap(),
@@ -167,6 +174,7 @@ fn credentials_url(context: &Context, overrides: &Overrides, device: &str) -> Re
 }
 
 fn credentials_delete<F>(
+    client: &Client,
     context: &Context,
     overrides: &Overrides,
     device: &str,
@@ -175,7 +183,7 @@ fn credentials_delete<F>(
 where
     F: Fn(&Map<String, Value>, &String, &String) -> bool,
 {
-    credentials_modify(&context, overrides, device, |payload| {
+    credentials_modify(client, &context, overrides, device, |payload| {
         payload.retain(|cred| match cred {
             Value::Object(o) => match (o.get("type"), o.get("auth-id")) {
                 (Some(Value::String(t)), Some(Value::String(a))) => !predicate(o, t, a),
@@ -188,6 +196,7 @@ where
 }
 
 fn credentials_modify<F>(
+    client: &Client,
     context: &Context,
     overrides: &Overrides,
     device: &str,
@@ -198,12 +207,13 @@ where
 {
     let url = credentials_url(context, overrides, device)?;
 
-    resource_modify(&context, overrides, &url, &url, device, modifier)?;
+    resource_modify(client, &context, &url, &url, device, modifier)?;
 
     Ok(())
 }
 
 fn credentials_add_password(
+    client: &Client,
     context: &Context,
     overrides: &Overrides,
     device: &str,
@@ -215,6 +225,7 @@ fn credentials_add_password(
     let new_secret = new_secret(password, hash_function)?;
 
     cred_add_or_insert(
+        client,
         context,
         overrides,
         clear,
@@ -234,6 +245,7 @@ fn credentials_add_password(
 }
 
 fn cred_add_or_insert(
+    client: &Client,
     context: &Context,
     overrides: &Overrides,
     clear: bool,
@@ -242,7 +254,7 @@ fn cred_add_or_insert(
     auth_id: &str,
     new_secret: Value,
 ) -> Result<()> {
-    credentials_modify(&context, overrides, device, |payload| {
+    credentials_modify(client, &context, overrides, device, |payload| {
         let cred = payload
             .iter_mut()
             .flat_map(|c| cred_for_type_and_auth(type_name, auth_id, c))
