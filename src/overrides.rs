@@ -48,7 +48,7 @@ impl<'a> From<&'a clap::ArgMatches<'a>> for Overrides {
             url: matches.value_of("url-override").map(ToString::to_string),
             tenant: matches.value_of("tenant-override").map(ToString::to_string),
             use_kubernetes: flag_arg("kubernetes-override", matches),
-            insecure: flag_arg("insecure", matches),
+            insecure: flag_arg("insecure-override", matches),
         }
     }
 }

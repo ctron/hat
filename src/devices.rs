@@ -13,7 +13,7 @@
 
 use clap::{App, ArgMatches};
 
-use crate::context::{ApiFlavor, Context};
+use crate::context::Context;
 use crate::help::help;
 
 use serde_json::value::{Map, Value};
@@ -99,11 +99,6 @@ fn registration_create(
     device: Option<&str>,
     payload: Option<&str>,
 ) -> Result<()> {
-    if device.is_none() {
-        // only works in the V1 api
-        context.api_required(&[ApiFlavor::EclipseHonoV1])?;
-    }
-
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(context, overrides, RESOURCE_NAME, &[&tenant])?;
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2018 Red Hat Inc
+ * Copyright (c) 2018, 2020 Red Hat Inc
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -28,6 +28,7 @@ use simplelog::{Config, LevelFilter, TermLogger};
 use std::result::Result;
 
 mod args;
+mod client;
 mod context;
 mod credentials;
 mod devices;
@@ -39,25 +40,26 @@ mod overrides;
 mod resource;
 mod tenant;
 mod utils;
-mod client;
 
 fn app() -> App<'static, 'static> {
     // globals
-    let args_global_insecure = Arg::with_name("insecure")
-        .help("Ignore TLS certificate and hostname (INSECURE!)")
+
+    let args_global_verbose = Arg::with_name("verbose")
+        .help("Be more verbose, repeat to increase verbosity")
         .global(true)
-        .long("insecure")
-        .min_values(0)
-        .max_values(1);
+        .short("v")
+        .long("verbose")
+        .multiple(true);
 
     // context
 
     let args_ctx = Arg::with_name("context")
         .help("Name of the context")
-        .max_values(1)
+        .number_of_values(1)
         .required(true);
     let args_ctx_url = Arg::with_name("url")
         .help("URL to the server")
+        .number_of_values(1)
         .required(true);
     let args_ctx_username = Arg::with_name("username")
         .help("Username for accessing the device registry")
@@ -76,18 +78,19 @@ fn app() -> App<'static, 'static> {
     let args_ctx_kubernetes = Arg::with_name("kubernetes")
         .help("Use local Kubernetes token for accessing the device registry")
         .long("kubernetes")
+        .possible_values(&["true", "false"])
         .min_values(0)
         .max_values(1);
-    let args_ctx_default_tenant = Arg::with_name("default_tenant")
+    let args_ctx_default_tenant = Arg::with_name("default-tenant")
         .help("Set the default tenant")
         .long("default-tenant")
         .number_of_values(1);
-    let args_ctx_api_flavor = Arg::with_name("api_flavor")
-        .help("Set the API flavor")
-        .long("api-flavor")
-        .alias("api-flavour")
-        .possible_values(&["hono-v1", "hono", "iothub"])
-        .number_of_values(1);
+    let args_ctx_insecure = Arg::with_name("insecure")
+        .help("Ignore TLS certificate and hostname (INSECURE!)")
+        .long("insecure")
+        .possible_values(&["true", "false"])
+        .min_values(0)
+        .max_values(1);
 
     // tenant
 
@@ -139,6 +142,9 @@ fn app() -> App<'static, 'static> {
         .help("Override the URL")
         .global(true)
         .short("U")
+        .long("url")
+        .group("overrides")
+        .env("HAT_URL")
         .number_of_values(1);
 
     let args_override_tenant = Arg::with_name("tenant-override")
@@ -146,6 +152,7 @@ fn app() -> App<'static, 'static> {
         .global(true)
         .short("t")
         .long("tenant")
+        .env("HAT_TENANT")
         .number_of_values(1);
 
     let args_override_context = Arg::with_name("context-override")
@@ -153,6 +160,7 @@ fn app() -> App<'static, 'static> {
         .global(true)
         .short("c")
         .long("context")
+        .env("HAT_CONTEXT")
         .number_of_values(1);
 
     let args_override_kubernetes = Arg::with_name("kubernetes-override")
@@ -160,6 +168,15 @@ fn app() -> App<'static, 'static> {
         .global(true)
         .long("use-kubernetes")
         .short("k")
+        .possible_values(&["true", "false"])
+        .min_values(0)
+        .max_values(1);
+
+    let args_override_insecure = Arg::with_name("insecure-override")
+        .help("Ignore TLS certificate and hostname (INSECURE!)")
+        .global(true)
+        .long("insecure")
+        .possible_values(&["true", "false"])
         .min_values(0)
         .max_values(1);
 
@@ -168,6 +185,7 @@ fn app() -> App<'static, 'static> {
         args_override_kubernetes,
         args_override_tenant,
         args_override_url,
+        args_override_insecure,
     ];
 
     // main app
@@ -178,16 +196,7 @@ fn app() -> App<'static, 'static> {
         .author("Jens Reimann <jreimann@redhat.com>")
         .about("Work with an Eclipse Hono instance")
         .global_setting(AppSettings::VersionlessSubcommands)
-        .arg(
-            Arg::with_name("verbose")
-                .help("Be more verbose, repeat to increase verbosity")
-                .global(true)
-                .short("v")
-                .long("verbose")
-                .multiple(true),
-        )
-        .args(&args_overrides.clone())
-        .arg(args_global_insecure.clone())
+        .arg(args_global_verbose)
         .subcommand(
             SubCommand::with_name("context")
                 .about("Work with contexts")
@@ -201,25 +210,20 @@ fn app() -> App<'static, 'static> {
                         .arg(args_ctx_password.clone())
                         .arg(args_ctx_token.clone())
                         .arg(args_ctx_kubernetes.clone())
-                        .arg(args_ctx_default_tenant.clone())
-                        .arg(args_ctx_api_flavor.clone()),
+                        .arg(args_ctx_insecure.clone())
+                        .arg(args_ctx_default_tenant.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("update")
                         .about("Update an existing context")
                         .arg(args_ctx.clone().required(false))
-                        .arg(
-                            Arg::with_name("url")
-                                .long("url")
-                                .help("The new url to set")
-                                .takes_value(true),
-                        )
+                        .arg(args_ctx_url.clone().required(false))
                         .arg(args_ctx_username.clone())
                         .arg(args_ctx_password.clone())
                         .arg(args_ctx_token.clone())
                         .arg(args_ctx_kubernetes.clone())
-                        .arg(args_ctx_default_tenant.clone())
-                        .arg(args_ctx_api_flavor.clone()),
+                        .arg(args_ctx_insecure.clone())
+                        .arg(args_ctx_default_tenant.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("delete")
@@ -236,13 +240,16 @@ fn app() -> App<'static, 'static> {
                         .arg(args_ctx.clone()),
                 )
                 .subcommand(
-                    SubCommand::with_name("show").about("Show current context information"),
+                    SubCommand::with_name("show")
+                        .about("Show current context information")
+                        .arg(args_ctx.clone().required(false)),
                 ),
         )
         .subcommand(
             SubCommand::with_name("tenant")
                 .about("Work with tenants")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
+                .args(&args_overrides)
                 .subcommand(
                     SubCommand::with_name("create")
                         .about("Create a new tenant")
@@ -279,8 +286,8 @@ fn app() -> App<'static, 'static> {
         .subcommand(
             SubCommand::with_name("device")
                 .about("Work with devices")
+                .args(&args_overrides)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
-                // .arg(args_tenant.clone())
                 .subcommand(
                     SubCommand::with_name("create")
                         .about("Register a new device")
@@ -324,8 +331,8 @@ fn app() -> App<'static, 'static> {
             SubCommand::with_name("cred")
                 .aliases(&["creds", "auth", "credentials"])
                 .about("Work with device credentials")
+                .args(&args_overrides)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
-                // .arg(args_tenant.clone())
                 .subcommand(
                     SubCommand::with_name("set")
                         .about("Set all credentials for device")

@@ -1,11 +1,11 @@
 [package]
 name = "hat"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Jens Reimann <jreimann@redhat.com>"]
 edition = "2018"
 
 [dependencies]
-clap = "2.33"
+clap = { version  = "2.33", features = ["suggestions", "wrap_help", "color"]}
 log = "0.4"
 simplelog = "0.5"
 

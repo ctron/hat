@@ -15,7 +15,6 @@ use clap::{App, ArgMatches};
 
 use crate::help::help;
 
-use crate::context::ApiFlavor::BoschIoTHub;
 use crate::context::Context;
 
 use http::header::*;
@@ -149,10 +148,6 @@ fn credentials_set(
 }
 
 fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
-    if let BoschIoTHub = context.api_flavor() {
-        return Err(WrongApiFlavor.into());
-    }
-
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(
         context,

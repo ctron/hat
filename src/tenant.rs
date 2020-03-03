@@ -13,7 +13,7 @@
 
 use clap::{App, ArgMatches};
 
-use crate::context::{ApiFlavor, Context};
+use crate::context::Context;
 use crate::help::help;
 
 use http::header::*;
@@ -94,11 +94,6 @@ fn tenant_create(
     tenant: Option<&str>,
     payload: Option<&str>,
 ) -> Result<()> {
-    if tenant.is_none() {
-        // only works in the V1 api
-        context.api_required(&[ApiFlavor::EclipseHonoV1])?;
-    }
-
     let url = resource_url(context, overrides, RESOURCE_NAME, tenant)?;
 
     let payload = match payload {

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2019 Red Hat Inc
+ * Copyright (c) 2019, 2020 Red Hat Inc
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -31,26 +31,42 @@ pub fn map_switch_value(value: &str) -> bool {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_flag_arg() {
-        let app = clap::App::new("test").arg(
+    fn setup<'a, 'b>() -> clap::App<'a, 'b> {
+        clap::App::new("test").arg(
             clap::Arg::with_name("k")
                 .short("k")
                 .min_values(0)
                 .max_values(1)
                 .takes_value(true),
-        );
+        )
+    }
 
-        let m = app.clone().get_matches_from(vec!["test"]);
+    #[test]
+    fn test_flag_arg_1() {
+        let app = setup();
+        let m = app.get_matches_from(vec!["test"]);
         assert_eq!(flag_arg("k", &m), None);
+    }
 
-        let m = app.clone().get_matches_from(vec!["test", "-k"]);
+    #[test]
+    fn test_flag_arg_2() {
+        let app = setup();
+        let m = app.get_matches_from(vec!["test", "-k"]);
         assert_eq!(flag_arg("k", &m), Some(true));
+    }
 
-        let m = app.clone().get_matches_from(vec!["test", "-k=false"]);
+    #[test]
+    fn test_flag_arg_3() {
+        let app = setup();
+        let m = app.get_matches_from(vec!["test", "-k=false"]);
         assert_eq!(flag_arg("k", &m), Some(false));
+    }
 
-        let m = app.clone().get_matches_from(vec!["test", "-k=true"]);
+    #[test]
+    fn test_flag_arg_4() {
+        let app = setup();
+
+        let m = app.get_matches_from(vec!["test", "-k=true"]);
         assert_eq!(flag_arg("k", &m), Some(true));
     }
 }
