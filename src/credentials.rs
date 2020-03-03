@@ -39,6 +39,7 @@ type Result<T> = std::result::Result<T, error::Error>;
 
 static RESOURCE_NAME: &str = "credentials";
 static TYPE_HASHED_PASSWORD: &str = "hashed-password";
+static TYPE_PSK: &str = "psk";
 
 pub fn credentials(
     app: &mut App,
@@ -78,9 +79,32 @@ pub fn credentials(
             &value_t!(cmd_matches.value_of("hash-function"), HashFunction).unwrap(),
             true,
         )?,
+        ("add-psk", Some(cmd_matches)) => credentials_add_psk(
+            &client,
+            context,
+            overrides,
+            cmd_matches.value_of("device").unwrap(),
+            cmd_matches.value_of("auth-id").unwrap(),
+            cmd_matches.value_of("psk").unwrap(),
+            false,
+        )?,
+        ("set-psk", Some(cmd_matches)) => credentials_add_psk(
+            &client,
+            context,
+            overrides,
+            cmd_matches.value_of("device").unwrap(),
+            cmd_matches.value_of("auth-id").unwrap(),
+            cmd_matches.value_of("psk").unwrap(),
+            true,
+        )?,
         ("delete", Some(cmd_matches)) => {
             let expected_type_name = cmd_matches.value_of("type").unwrap();
             let expected_auth_id = cmd_matches.value_of("auth-id").unwrap();
+
+            info!(
+                "Deleting credentials from device - type: {}, auth_id: {}",
+                expected_type_name, expected_auth_id
+            );
 
             credentials_delete(
                 &client,
@@ -88,7 +112,12 @@ pub fn credentials(
                 overrides,
                 cmd_matches.value_of("device").unwrap(),
                 |_, type_name, auth_id| {
-                    expected_type_name == type_name && expected_auth_id == auth_id
+                    let result = expected_type_name == type_name && expected_auth_id == auth_id;
+                    debug!(
+                        "Testing - {}/{} == {}/{} => {}",
+                        expected_type_name, expected_auth_id, type_name, auth_id, result
+                    );
+                    result
                 },
             )?
         }
@@ -178,7 +207,11 @@ fn credentials_delete<F>(
 where
     F: Fn(&Map<String, Value>, &String, &String) -> bool,
 {
+    let mut count: usize = 0;
+    let mut diff: usize = 0;
+
     credentials_modify(client, &context, overrides, device, |payload| {
+        count = payload.len();
         payload.retain(|cred| match cred {
             Value::Object(o) => match (o.get("type"), o.get("auth-id")) {
                 (Some(Value::String(t)), Some(Value::String(a))) => !predicate(o, t, a),
@@ -186,8 +219,13 @@ where
             },
             _ => true,
         });
+        diff = count - payload.len();
         Ok(())
-    })
+    })?;
+
+    println!("Deleted {} elements, {} remain.", diff, count);
+
+    Ok(())
 }
 
 fn credentials_modify<F>(
@@ -198,11 +236,35 @@ fn credentials_modify<F>(
     modifier: F,
 ) -> Result<()>
 where
-    F: Fn(&mut Vec<Value>) -> Result<()>,
+    F: FnMut(&mut Vec<Value>) -> Result<()>,
 {
     let url = credentials_url(context, overrides, device)?;
 
     resource_modify(client, &context, &url, &url, device, modifier)?;
+
+    Ok(())
+}
+
+fn credentials_add_psk(
+    client: &Client,
+    context: &Context,
+    overrides: &Overrides,
+    device: &str,
+    auth_id: &str,
+    psk: &str,
+    clear: bool,
+) -> Result<()> {
+    let new_secret = new_psk_secret(psk)?;
+
+    cred_add_or_insert(
+        client, context, overrides, clear, TYPE_PSK, device, auth_id, new_secret,
+    )?;
+
+    if clear {
+        println!("PSK set for {}/{}", device, auth_id);
+    } else {
+        println!("PSK added to {}/{}", device, auth_id);
+    }
 
     Ok(())
 }
@@ -217,7 +279,7 @@ fn credentials_add_password(
     hash_function: &HashFunction,
     clear: bool,
 ) -> Result<()> {
-    let new_secret = new_secret(password, hash_function)?;
+    let new_secret = new_password_secret(password, hash_function)?;
 
     cred_add_or_insert(
         client,
@@ -308,12 +370,25 @@ fn new_credential(type_name: &str, auth_id: &str) -> Value {
 }
 
 /// Create a new secrets entry, based on `hashed-password`
-fn new_secret(plain_password: &str, hash_function: &HashFunction) -> Result<Value> {
+fn new_password_secret(plain_password: &str, hash_function: &HashFunction) -> Result<Value> {
     let mut new_pair = Map::new();
 
     // put to result
 
     hash_function.insert(&mut new_pair, &plain_password)?;
+
+    // return as value
+
+    Ok(Value::Object(new_pair))
+}
+
+/// Create a new secrets entry, based on `psk`
+fn new_psk_secret<S: Into<Value>>(psk: S) -> Result<Value> {
+    let mut new_pair = Map::new();
+
+    // put to result
+
+    new_pair.insert("key".into(), psk.into());
 
     // return as value
 

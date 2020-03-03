@@ -134,6 +134,10 @@ fn app() -> App<'static, 'static> {
         .takes_value(true)
         .help("Password hash function [possible values: plain, sha-256, sha-512, bcrypt<:iterations>]")
         .default_value("plain");
+    let args_credentials_password = Arg::with_name("password")
+        .required(true)
+        .help("The plaintext password");
+    let args_credentials_psk = Arg::with_name("psk").required(true).help("The PSK value");
 
     // overrides
 
@@ -349,16 +353,7 @@ fn app() -> App<'static, 'static> {
                         .arg(args_device.clone())
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_hash_function.clone())
-                        .arg(
-                            Arg::with_name("password")
-                                .required(true)
-                                .help("The plaintext password"),
-                        )
-                        .arg(
-                            Arg::with_name("no-salt")
-                                .help("Disable the use of a salt - not recommended")
-                                .long("--no-salt"),
-                        ),
+                        .arg(args_credentials_password.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("set-password")
@@ -366,23 +361,29 @@ fn app() -> App<'static, 'static> {
                         .arg(args_device.clone())
                         .arg(args_credentials_auth_id.clone())
                         .arg(args_credentials_hash_function.clone())
-                        .arg(
-                            Arg::with_name("password")
-                                .required(true)
-                                .help("The plaintext password"),
-                        )
-                        .arg(
-                            Arg::with_name("no-salt")
-                                .help("Disable the use of a salt - not recommended")
-                                .long("--no-salt"),
-                        ),
+                        .arg(args_credentials_password.clone()),
+                )
+                .subcommand(
+                    SubCommand::with_name("add-psk")
+                        .about("Add PSK secret")
+                        .arg(args_device.clone())
+                        .arg(args_credentials_auth_id.clone())
+                        .arg(args_credentials_hash_function.clone())
+                        .arg(args_credentials_psk.clone()),
+                )
+                .subcommand(
+                    SubCommand::with_name("set-psk")
+                        .about("Set PSK as the only secret")
+                        .arg(args_device.clone())
+                        .arg(args_credentials_auth_id.clone())
+                        .arg(args_credentials_psk.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("delete")
                         .about("Delete a credential set from a device")
                         .arg(args_device.clone())
-                        .arg(args_credentials_auth_id.clone())
-                        .arg(args_credentials_type.clone()),
+                        .arg(args_credentials_type.clone())
+                        .arg(args_credentials_auth_id.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("delete-all")

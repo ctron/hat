@@ -210,10 +210,10 @@ pub fn resource_modify_with_create<C, F, T>(
     update_url: &Url,
     resource_name: &str,
     creator: C,
-    modifier: F,
+    mut modifier: F,
 ) -> Result<reqwest::Response>
 where
-    F: Fn(&mut T) -> Result<()>,
+    F: FnMut(&mut T) -> Result<()>,
     C: Fn() -> Result<T>,
     T: Serialize + DeserializeOwned + std::fmt::Debug,
 {
@@ -280,7 +280,7 @@ pub fn resource_modify<F, T>(
     modifier: F,
 ) -> Result<reqwest::Response>
 where
-    F: Fn(&mut T) -> Result<()>,
+    F: FnMut(&mut T) -> Result<()>,
     T: Serialize + DeserializeOwned + std::fmt::Debug,
 {
     resource_modify_with_create(
