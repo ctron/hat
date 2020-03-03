@@ -131,10 +131,9 @@ fn app() -> App<'static, 'static> {
     let args_credentials_hash_function = Arg::with_name("hash-function")
         .short("h")
         .long("hash")
-        .required(true)
         .takes_value(true)
         .help("Password hash function [possible values: plain, sha-256, sha-512, bcrypt<:iterations>]")
-        .default_value("bcrypt");
+        .default_value("plain");
 
     // overrides
 
