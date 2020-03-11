@@ -11,6 +11,8 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
+use log::info;
+
 use url;
 use url::Url;
 
@@ -28,6 +30,7 @@ use crate::error;
 use crate::client::Client;
 use crate::output::display_json_value;
 use crate::overrides::Overrides;
+use futures::executor::block_on;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -149,20 +152,21 @@ where
     Ok(url)
 }
 
-pub fn resource_delete(
+pub async fn resource_delete(
     context: &Context,
     overrides: &Overrides,
     url: &url::Url,
     resource_type: &str,
     resource_name: &str,
 ) -> Result<()> {
-    let client = context.create_client(overrides)?;
+    let client = context.create_client(overrides).await?;
 
     client
         .request(Method::DELETE, url.clone())
         .apply_auth(context)?
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
@@ -176,19 +180,20 @@ pub fn resource_delete(
     Ok(())
 }
 
-pub fn resource_get(
+pub async fn resource_get(
     context: &Context,
     overrides: &Overrides,
     url: &url::Url,
     resource_type: &str,
 ) -> Result<()> {
-    let client = context.create_client(overrides)?;
+    let client = context.create_client(overrides).await?;
 
     let result: serde_json::value::Value = client
         .request(Method::GET, url.clone())
         .apply_auth(context)?
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)
         .and_then(|response| match response.status() {
@@ -196,14 +201,15 @@ pub fn resource_get(
             StatusCode::NOT_FOUND => Err(NotFound(resource_type.to_string()).into()),
             _ => Err(UnexpectedResult(response.status()).into()),
         })?
-        .json()?;
+        .json()
+        .await?;
 
     display_json_value(&result)?;
 
     Ok(())
 }
 
-pub fn resource_modify_with_create<C, F, T>(
+pub async fn resource_modify_with_create<C, F, T>(
     client: &Client,
     context: &Context,
     read_url: &Url,
@@ -219,17 +225,21 @@ where
 {
     // get
 
-    let mut response = client
+    let response = client
         .client
         .request(Method::GET, read_url.clone())
         .apply_auth(context)?
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)?;
 
+    // retrieve ETag header
+    let etag = &response.headers().get(ETAG).map(|o| o.clone());
+
     let mut payload: T = match response.status() {
-        StatusCode::OK => response.json().map_err(error::Error::from),
+        StatusCode::OK => response.json().await.map_err(error::Error::from),
         StatusCode::NOT_FOUND => creator(),
         _ => Err(UnexpectedResult(response.status()).into()),
     }?;
@@ -242,10 +252,6 @@ where
 
     info!("PUT Payload: {:#?}", payload);
 
-    // retrieve ETag header
-
-    let etag = response.headers().get(ETAG);
-
     // update
 
     client
@@ -253,25 +259,26 @@ where
         .request(Method::PUT, update_url.clone())
         .apply_auth(context)?
         .header(CONTENT_TYPE, "application/json")
-        .if_match(etag)
+        .if_match(etag.as_ref())
         .json(&payload)
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)
-        .and_then(|mut response| match response.status() {
+        .and_then(|response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
             StatusCode::NOT_FOUND => Err(NotFound(resource_name.into()).into()),
-            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
+            StatusCode::BAD_REQUEST => block_on(resource_err_bad_request(response)),
             _ => Err(UnexpectedResult(response.status()).into()),
         })
 }
 
-pub fn resource_err_bad_request<T>(response: &mut reqwest::Response) -> Result<T> {
-    Err(MalformedRequest(response.text().unwrap_or_else(|_| "<unknown>".into())).into())
+pub async fn resource_err_bad_request<T>(response: reqwest::Response) -> Result<T> {
+    Err(MalformedRequest(response.text().await.unwrap_or_else(|_| "<unknown>".into())).into())
 }
 
-pub fn resource_modify<F, T>(
+pub async fn resource_modify<F, T>(
     client: &Client,
     context: &Context,
     read_url: &Url,
@@ -292,6 +299,7 @@ where
         || Err(NotFound(resource_name.into()).into()),
         modifier,
     )
+    .await
 }
 
 pub fn resource_id_from_location(response: reqwest::Response) -> Result<String> {

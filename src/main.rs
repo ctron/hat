@@ -11,21 +11,13 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
-#[macro_use]
-extern crate clap;
-
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate serde_derive;
-
-extern crate bcrypt;
-
+use clap::crate_version;
 use clap::{App, AppSettings, Arg, SubCommand};
 use overrides::Overrides;
 use simplelog::{Config, LevelFilter, TermLogger};
 use std::result::Result;
+
+use log::debug;
 
 mod args;
 mod client;
@@ -393,7 +385,7 @@ fn app() -> App<'static, 'static> {
         )
 }
 
-fn run() -> Result<(), failure::Error> {
+async fn run() -> Result<(), failure::Error> {
     let mut app = app();
     let matches = app.clone().get_matches();
 
@@ -426,20 +418,21 @@ fn run() -> Result<(), failure::Error> {
     let context = context::context_load_current(Some(&overrides))?;
 
     match cmd_name {
-        "tenant" => tenant::tenant(&mut app, cmd.unwrap(), &overrides, &context)?,
-        "device" => devices::registration(&mut app, cmd.unwrap(), &overrides, &context)?,
-        "cred" => credentials::credentials(&mut app, cmd.unwrap(), &overrides, &context)?,
+        "tenant" => tenant::tenant(&mut app, cmd.unwrap(), &overrides, &context).await?,
+        "device" => devices::registration(&mut app, cmd.unwrap(), &overrides, &context).await?,
+        "cred" => credentials::credentials(&mut app, cmd.unwrap(), &overrides, &context).await?,
         _ => help::help(&mut app)?,
     };
 
     Ok(())
 }
 
-fn main() {
+#[tokio::main(core_threads = 1)]
+async fn main() {
     #[cfg(windows)]
     let _enabled = colored_json::enable_ansi_support();
 
-    let rc = run();
+    let rc = run().await;
 
     if let Err(err) = rc {
         eprintln!("{}", err);

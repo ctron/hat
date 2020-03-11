@@ -17,7 +17,6 @@ use std::result::Result;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
-use url::percent_encoding::{percent_decode, utf8_percent_encode, DEFAULT_ENCODE_SET};
 use url::Url;
 
 use crate::help::help;
@@ -38,6 +37,9 @@ use crate::resource::Tracer;
 use crate::utils::Either;
 use ansi_term::Style;
 use colored_json::*;
+use percent_encoding::{percent_decode, utf8_percent_encode, NON_ALPHANUMERIC};
+use serde;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Context {
@@ -97,9 +99,7 @@ impl Context {
         overrides: &Overrides,
     ) -> reqwest::ClientBuilder {
         let client_builder = if overrides.insecure().unwrap_or(self.insecure) {
-            client_builder
-                .danger_accept_invalid_certs(true)
-                .danger_accept_invalid_hostnames(true)
+            client_builder.danger_accept_invalid_certs(true)
         } else {
             client_builder
         };
@@ -107,30 +107,21 @@ impl Context {
         client_builder
     }
 
-    #[cfg(not(windows))]
-    pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
+    pub async fn create_client(
+        &self,
+        overrides: &Overrides,
+    ) -> Result<reqwest::Client, error::Error> {
         let builder = if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
-            let result = kube::config::create_client_builder(Default::default())?;
+            let result = kube::config::create_client_builder(Default::default()).await?;
             result.0
         } else {
-            reqwest::ClientBuilder::new()
+            reqwest::Client::builder()
         };
 
         Ok(self
             .apply_common_config(builder, overrides)
             .build()?
             .trace())
-    }
-
-    #[cfg(windows)]
-    pub fn create_client(&self, overrides: &Overrides) -> Result<reqwest::Client, error::Error> {
-        if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
-            Err(ErrorKind::GenericError("Kubernetes is not supported on Windows".into()).into())
-        } else {
-            Ok(self
-                .apply_common_config(reqwest::ClientBuilder::new(), overrides)
-                .build()?)
-        }
     }
 }
 
@@ -171,7 +162,7 @@ fn context_encode_file_name<S>(context: S) -> String
 where
     S: Into<String>,
 {
-    utf8_percent_encode(&context.into(), DEFAULT_ENCODE_SET).collect()
+    utf8_percent_encode(&context.into(), NON_ALPHANUMERIC).collect()
 }
 
 fn context_decode_file_name(name: &str) -> Result<String, Utf8Error> {

@@ -33,62 +33,81 @@ use crate::resource::{
 use crate::client::Client;
 use crate::overrides::Overrides;
 use crate::resource::Tracer;
+use futures::executor::block_on;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
 static KEY_ENABLED: &str = "enabled";
 static RESOURCE_NAME: &str = "devices";
 
-pub fn tenant(
-    app: &mut App,
-    matches: &ArgMatches,
+pub async fn tenant(
+    app: &mut App<'_, '_>,
+    matches: &ArgMatches<'_>,
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
-    let client = Client::new(context, overrides)?;
+    let client = Client::new(context, overrides).await?;
 
     match matches.subcommand() {
-        ("create", Some(cmd_matches)) => tenant_create(
-            context,
-            overrides,
-            cmd_matches.value_of("tenant_name"),
-            cmd_matches.value_of("payload"),
-        )?,
-        ("update", Some(cmd_matches)) => tenant_update(
-            context,
-            overrides,
-            cmd_matches.value_of("tenant_name").unwrap(),
-            cmd_matches.value_of("payload"),
-        )?,
-        ("get", Some(cmd_matches)) => tenant_get(
-            context,
-            overrides,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
-        ("delete", Some(cmd_matches)) => tenant_delete(
-            context,
-            overrides,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
-        ("enable", Some(cmd_matches)) => tenant_enable(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
-        ("disable", Some(cmd_matches)) => tenant_disable(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("tenant_name").unwrap(),
-        )?,
+        ("create", Some(cmd_matches)) => {
+            tenant_create(
+                context,
+                overrides,
+                cmd_matches.value_of("tenant_name"),
+                cmd_matches.value_of("payload"),
+            )
+            .await?
+        }
+        ("update", Some(cmd_matches)) => {
+            tenant_update(
+                context,
+                overrides,
+                cmd_matches.value_of("tenant_name").unwrap(),
+                cmd_matches.value_of("payload"),
+            )
+            .await?
+        }
+        ("get", Some(cmd_matches)) => {
+            tenant_get(
+                context,
+                overrides,
+                cmd_matches.value_of("tenant_name").unwrap(),
+            )
+            .await?
+        }
+        ("delete", Some(cmd_matches)) => {
+            tenant_delete(
+                context,
+                overrides,
+                cmd_matches.value_of("tenant_name").unwrap(),
+            )
+            .await?
+        }
+        ("enable", Some(cmd_matches)) => {
+            tenant_enable(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("tenant_name").unwrap(),
+            )
+            .await?
+        }
+        ("disable", Some(cmd_matches)) => {
+            tenant_disable(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("tenant_name").unwrap(),
+            )
+            .await?
+        }
         _ => help(app)?,
     };
 
     Ok(())
 }
 
-fn tenant_create(
+async fn tenant_create(
     context: &Context,
     overrides: &Overrides,
     tenant: Option<&str>,
@@ -101,7 +120,7 @@ fn tenant_create(
         _ => serde_json::value::Map::new(),
     };
 
-    let client = context.create_client(overrides)?;
+    let client = context.create_client(overrides).await?;
 
     let tenant = client
         .request(Method::POST, url)
@@ -110,12 +129,13 @@ fn tenant_create(
         .json(&payload)
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)
-        .and_then(|mut response| match response.status() {
+        .and_then(|response| match response.status() {
             StatusCode::CREATED => Ok(response),
             StatusCode::CONFLICT => Err(AlreadyExists(tenant.unwrap().to_string()).into()),
-            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
+            StatusCode::BAD_REQUEST => block_on(resource_err_bad_request(response)),
             _ => Err(UnexpectedResult(response.status()).into()),
         })
         .and_then(resource_id_from_location)?;
@@ -125,7 +145,7 @@ fn tenant_create(
     Ok(())
 }
 
-fn tenant_update(
+async fn tenant_update(
     context: &Context,
     overrides: &Overrides,
     tenant: &str,
@@ -143,7 +163,7 @@ fn tenant_update(
         serde_json::value::to_value(tenant)?,
     );
 
-    let client = context.create_client(overrides)?;
+    let client = context.create_client(overrides).await?;
 
     client
         .request(Method::PUT, url)
@@ -152,11 +172,12 @@ fn tenant_update(
         .json(&payload)
         .trace()
         .send()
+        .await
         .map_err(error::Error::from)
-        .and_then(|mut response| match response.status() {
+        .and_then(|response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
             StatusCode::NOT_FOUND => Err(NotFound(tenant.to_string()).into()),
-            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
+            StatusCode::BAD_REQUEST => block_on(resource_err_bad_request(response)),
             _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
@@ -165,12 +186,12 @@ fn tenant_update(
     Ok(())
 }
 
-fn tenant_delete(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
+async fn tenant_delete(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
     let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
-    resource_delete(&context, overrides, &url, "Tenant", tenant)
+    resource_delete(&context, overrides, &url, "Tenant", tenant).await
 }
 
-fn tenant_enable(
+async fn tenant_enable(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
@@ -188,14 +209,15 @@ fn tenant_enable(
             payload.insert(KEY_ENABLED.into(), Value::Bool(true));
             Ok(())
         },
-    )?;
+    )
+    .await?;
 
     println!("Tenant {} enabled", tenant);
 
     Ok(())
 }
 
-fn tenant_disable(
+async fn tenant_disable(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
@@ -213,14 +235,15 @@ fn tenant_disable(
             payload.insert(KEY_ENABLED.into(), Value::Bool(false));
             Ok(())
         },
-    )?;
+    )
+    .await?;
 
     println!("Tenant {} disabled", tenant);
 
     Ok(())
 }
 
-fn tenant_get(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
+async fn tenant_get(context: &Context, overrides: &Overrides, tenant: &str) -> Result<()> {
     let url = resource_url(context, overrides, RESOURCE_NAME, Some(tenant))?;
-    resource_get(&context, overrides, &url, "Tenant")
+    resource_get(&context, overrides, &url, "Tenant").await
 }

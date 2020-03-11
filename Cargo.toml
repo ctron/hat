@@ -5,25 +5,26 @@ authors = ["Jens Reimann <jreimann@redhat.com>"]
 edition = "2018"
 
 [dependencies]
-clap = { version  = "2.33", features = ["suggestions", "wrap_help", "color"]}
+clap = { version  = "2.33", features = ["suggestions", "wrap_help", "color"] }
 log = "0.4"
 simplelog = "0.5"
 
-serde = "1.0"
-serde_derive = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1.0"
 
 failure_derive = "0.1"
 failure = "0.1"
 
-url = "1.7"
+url = "2.1.1"
+percent-encoding = "2.1"
 
 dirs = "2"
 
-reqwest = "0.9"
+tokio = { version = "0.2", features = [ "macros", "rt-threaded" ] }
+reqwest = { version = "0.10.4", features = [ "gzip", "json" ] }
 
-http = "0.1"
+http = "0.2"
 
 base64 = "0.10"
 
@@ -35,6 +36,14 @@ bcrypt = "0.5"
 colored_json = "2.1"
 ansi_term = "0.12"
 
-# kube requires openssl, which is an issue on Windows
-[target.'cfg(not(windows))'.dependencies]
-kube = "0.17.1"
+futures = "0.3.4"
+
+[dependencies.kube]
+version = "0.28.1"
+default-features = false
+features = [ "rustls-tls" ]
+
+[dev-dependencies.k8s-openapi]
+version = "0.7.1"
+default-features = false
+features = ["v1_17"]

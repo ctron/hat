@@ -34,6 +34,7 @@ use crate::resource::{
     resource_append_path, resource_delete, resource_err_bad_request, resource_get,
     resource_id_from_location, resource_modify, resource_url, AuthExt,
 };
+use futures::executor::block_on;
 
 type Result<T> = std::result::Result<T, error::Error>;
 const RESOURCE_NAME: &str = "devices";
@@ -41,59 +42,74 @@ const RESOURCE_LABEL: &str = "Device";
 const PROP_ENABLED: &str = "enabled";
 const PROP_VIA: &str = "via";
 
-pub fn registration(
-    app: &mut App,
-    matches: &ArgMatches,
+pub async fn registration(
+    app: &mut App<'_, '_>,
+    matches: &ArgMatches<'_>,
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
-    let client = Client::new(context, overrides)?;
+    let client = Client::new(context, overrides).await?;
 
     match matches.subcommand() {
-        ("create", Some(cmd_matches)) => registration_create(
-            context,
-            overrides,
-            cmd_matches.value_of("device"),
-            cmd_matches.value_of("payload"),
-        )?,
-        ("update", Some(cmd_matches)) => registration_update(
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            cmd_matches.value_of("payload"),
-        )?,
+        ("create", Some(cmd_matches)) => {
+            registration_create(
+                context,
+                overrides,
+                cmd_matches.value_of("device"),
+                cmd_matches.value_of("payload"),
+            )
+            .await?
+        }
+        ("update", Some(cmd_matches)) => {
+            registration_update(
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("payload"),
+            )
+            .await?
+        }
         ("get", Some(cmd_matches)) => {
-            registration_get(context, overrides, cmd_matches.value_of("device").unwrap())?
+            registration_get(context, overrides, cmd_matches.value_of("device").unwrap()).await?
         }
         ("delete", Some(cmd_matches)) => {
-            registration_delete(context, overrides, cmd_matches.value_of("device").unwrap())?
+            registration_delete(context, overrides, cmd_matches.value_of("device").unwrap()).await?
         }
-        ("enable", Some(cmd_matches)) => registration_enable(
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            true,
-        )?,
-        ("disable", Some(cmd_matches)) => registration_enable(
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            false,
-        )?,
-        ("set-via", Some(cmd_matches)) => registration_via(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            cmd_matches.values_of("via"),
-        )?,
+        ("enable", Some(cmd_matches)) => {
+            registration_enable(
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                true,
+            )
+            .await?
+        }
+        ("disable", Some(cmd_matches)) => {
+            registration_enable(
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                false,
+            )
+            .await?
+        }
+        ("set-via", Some(cmd_matches)) => {
+            registration_via(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.values_of("via"),
+            )
+            .await?
+        }
         _ => help(app)?,
     };
 
     Ok(())
 }
 
-fn registration_create(
+async fn registration_create(
     context: &Context,
     overrides: &Overrides,
     device: Option<&str>,
@@ -109,7 +125,7 @@ fn registration_create(
         _ => serde_json::value::Map::new(),
     };
 
-    let client = context.create_client(overrides)?;
+    let client = context.create_client(overrides).await?;
 
     let device = client
         .request(Method::POST, url)
@@ -118,12 +134,13 @@ fn registration_create(
         .json(&payload)
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)
-        .and_then(|mut response| match response.status() {
+        .and_then(|response| match response.status() {
             StatusCode::CREATED => Ok(response),
             StatusCode::CONFLICT => Err(AlreadyExists(device.unwrap().to_string()).into()),
-            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
+            StatusCode::BAD_REQUEST => block_on(resource_err_bad_request(response)),
             _ => Err(UnexpectedResult(response.status()).into()),
         })
         .and_then(resource_id_from_location)?;
@@ -133,7 +150,7 @@ fn registration_create(
     Ok(())
 }
 
-fn registration_update(
+async fn registration_update(
     context: &Context,
     overrides: &Overrides,
     device: &str,
@@ -152,7 +169,7 @@ fn registration_update(
         _ => serde_json::value::Map::new(),
     };
 
-    let client = context.create_client(overrides)?;
+    let client = context.create_client(overrides).await?;
 
     client
         .request(Method::PUT, url)
@@ -161,12 +178,13 @@ fn registration_update(
         .json(&payload)
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)
-        .and_then(|mut response| match response.status() {
+        .and_then(|response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
             StatusCode::NOT_FOUND => Err(NotFound(device.to_string()).into()),
-            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
+            StatusCode::BAD_REQUEST => block_on(resource_err_bad_request(response)),
             _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
@@ -175,33 +193,33 @@ fn registration_update(
     Ok(())
 }
 
-fn registration_delete(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
+async fn registration_delete(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
     let url = resource_url(
         context,
         overrides,
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
-    resource_delete(&context, overrides, &url, RESOURCE_LABEL, &device)
+    resource_delete(&context, overrides, &url, RESOURCE_LABEL, &device).await
 }
 
-fn registration_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
+async fn registration_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
     let url = resource_url(
         context,
         overrides,
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )?;
-    resource_get(&context, overrides, &url, RESOURCE_LABEL)
+    resource_get(&context, overrides, &url, RESOURCE_LABEL).await
 }
 
-fn registration_enable(
+async fn registration_enable(
     context: &Context,
     overrides: &Overrides,
     device: &str,
     status: bool,
 ) -> Result<()> {
-    let client = Client::new(context, overrides)?;
+    let client = Client::new(context, overrides).await?;
 
     let url = resource_url(
         context,
@@ -220,7 +238,8 @@ fn registration_enable(
             reg.insert(PROP_ENABLED.into(), serde_json::value::Value::Bool(status));
             Ok(())
         },
-    )?;
+    )
+    .await?;
 
     println!(
         "Registration for device {} {}",
@@ -243,12 +262,12 @@ where
     )
 }
 
-fn registration_via(
+async fn registration_via(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
     device: &str,
-    via: Option<clap::Values>,
+    via: Option<clap::Values<'_>>,
 ) -> Result<()> {
     let url = registration_url(context, overrides, device)?;
 
@@ -271,7 +290,8 @@ fn registration_via(
 
             Ok(())
         },
-    )?;
+    )
+    .await?;
 
     match via {
         None => println!("Gateways cleared for device {}", device),

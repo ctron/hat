@@ -22,8 +22,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(context: &Context, overrides: &Overrides) -> Result<Self> {
-        let client = context.create_client(overrides)?;
+    pub async fn new(context: &Context, overrides: &Overrides) -> Result<Self> {
+        let client = context.create_client(overrides).await?;
 
         Ok(Client { client })
     }

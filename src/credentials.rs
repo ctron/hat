@@ -11,7 +11,10 @@
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
 
+use clap::value_t;
 use clap::{App, ArgMatches};
+
+use log::{debug, info};
 
 use crate::help::help;
 
@@ -34,6 +37,7 @@ use serde_json::value::{Map, Value};
 
 use crate::client::Client;
 use crate::overrides::Overrides;
+use futures::executor::block_on;
 
 type Result<T> = std::result::Result<T, error::Error>;
 
@@ -41,62 +45,77 @@ static RESOURCE_NAME: &str = "credentials";
 static TYPE_HASHED_PASSWORD: &str = "hashed-password";
 static TYPE_PSK: &str = "psk";
 
-pub fn credentials(
-    app: &mut App,
-    matches: &ArgMatches,
+pub async fn credentials(
+    app: &mut App<'_, '_>,
+    matches: &ArgMatches<'_>,
     overrides: &Overrides,
     context: &Context,
 ) -> Result<()> {
-    let client = Client::new(context, overrides)?;
+    let client = Client::new(context, overrides).await?;
 
     match matches.subcommand() {
-        ("set", Some(cmd_matches)) => credentials_set(
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            cmd_matches.value_of("payload"),
-        )?,
-        ("get", Some(cmd_matches)) => {
-            credentials_get(context, overrides, cmd_matches.value_of("device").unwrap())?
+        ("set", Some(cmd_matches)) => {
+            credentials_set(
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("payload"),
+            )
+            .await?
         }
-        ("add-password", Some(cmd_matches)) => credentials_add_password(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            cmd_matches.value_of("auth-id").unwrap(),
-            cmd_matches.value_of("password").unwrap(),
-            &value_t!(cmd_matches.value_of("hash-function"), HashFunction).unwrap(),
-            false,
-        )?,
-        ("set-password", Some(cmd_matches)) => credentials_add_password(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            cmd_matches.value_of("auth-id").unwrap(),
-            cmd_matches.value_of("password").unwrap(),
-            &value_t!(cmd_matches.value_of("hash-function"), HashFunction).unwrap(),
-            true,
-        )?,
-        ("add-psk", Some(cmd_matches)) => credentials_add_psk(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            cmd_matches.value_of("auth-id").unwrap(),
-            cmd_matches.value_of("psk").unwrap(),
-            false,
-        )?,
-        ("set-psk", Some(cmd_matches)) => credentials_add_psk(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            cmd_matches.value_of("auth-id").unwrap(),
-            cmd_matches.value_of("psk").unwrap(),
-            true,
-        )?,
+        ("get", Some(cmd_matches)) => {
+            credentials_get(context, overrides, cmd_matches.value_of("device").unwrap()).await?
+        }
+        ("add-password", Some(cmd_matches)) => {
+            credentials_add_password(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("auth-id").unwrap(),
+                cmd_matches.value_of("password").unwrap(),
+                &value_t!(cmd_matches.value_of("hash-function"), HashFunction).unwrap(),
+                false,
+            )
+            .await?
+        }
+        ("set-password", Some(cmd_matches)) => {
+            credentials_add_password(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("auth-id").unwrap(),
+                cmd_matches.value_of("password").unwrap(),
+                &value_t!(cmd_matches.value_of("hash-function"), HashFunction).unwrap(),
+                true,
+            )
+            .await?
+        }
+        ("add-psk", Some(cmd_matches)) => {
+            credentials_add_psk(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("auth-id").unwrap(),
+                cmd_matches.value_of("psk").unwrap(),
+                false,
+            )
+            .await?
+        }
+        ("set-psk", Some(cmd_matches)) => {
+            credentials_add_psk(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("auth-id").unwrap(),
+                cmd_matches.value_of("psk").unwrap(),
+                true,
+            )
+            .await?
+        }
         ("delete", Some(cmd_matches)) => {
             let expected_type_name = cmd_matches.value_of("type").unwrap();
             let expected_auth_id = cmd_matches.value_of("auth-id").unwrap();
@@ -119,22 +138,26 @@ pub fn credentials(
                     );
                     result
                 },
-            )?
+            )
+            .await?
         }
-        ("delete-all", Some(cmd_matches)) => credentials_delete(
-            &client,
-            context,
-            overrides,
-            cmd_matches.value_of("device").unwrap(),
-            |_, _, _| true,
-        )?,
+        ("delete-all", Some(cmd_matches)) => {
+            credentials_delete(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                |_, _, _| true,
+            )
+            .await?
+        }
         _ => help(app)?,
     };
 
     Ok(())
 }
 
-fn credentials_set(
+async fn credentials_set(
     context: &Context,
     overrides: &Overrides,
     device: &str,
@@ -153,7 +176,7 @@ fn credentials_set(
         _ => Vec::<Value>::new(),
     };
 
-    let client = context.create_client(overrides)?;
+    let client = context.create_client(overrides).await?;
 
     client
         .request(Method::PUT, url)
@@ -162,12 +185,13 @@ fn credentials_set(
         .json(&payload)
         .trace()
         .send()
+        .await
         .trace()
         .map_err(error::Error::from)
-        .and_then(|mut response| match response.status() {
+        .and_then(|response| match response.status() {
             StatusCode::NO_CONTENT => Ok(response),
             StatusCode::NOT_FOUND => Err(NotFound(device.to_string()).into()),
-            StatusCode::BAD_REQUEST => resource_err_bad_request(&mut response),
+            StatusCode::BAD_REQUEST => block_on(resource_err_bad_request(response)),
             _ => Err(UnexpectedResult(response.status()).into()),
         })?;
 
@@ -176,7 +200,7 @@ fn credentials_set(
     Ok(())
 }
 
-fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
+async fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Result<()> {
     let tenant = context.make_tenant(overrides)?;
     let url = resource_url(
         context,
@@ -185,7 +209,7 @@ fn credentials_get(context: &Context, overrides: &Overrides, device: &str) -> Re
         &[&tenant, &device.into()],
     )?;
 
-    resource_get(&context, overrides, &url, "Credentials")
+    resource_get(&context, overrides, &url, "Credentials").await
 }
 
 fn credentials_url(context: &Context, overrides: &Overrides, device: &str) -> Result<url::Url> {
@@ -197,7 +221,7 @@ fn credentials_url(context: &Context, overrides: &Overrides, device: &str) -> Re
     )
 }
 
-fn credentials_delete<F>(
+async fn credentials_delete<F>(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
@@ -221,14 +245,15 @@ where
         });
         diff = count - payload.len();
         Ok(())
-    })?;
+    })
+    .await?;
 
     println!("Deleted {} elements, {} remain.", diff, count);
 
     Ok(())
 }
 
-fn credentials_modify<F>(
+async fn credentials_modify<F>(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
@@ -240,12 +265,12 @@ where
 {
     let url = credentials_url(context, overrides, device)?;
 
-    resource_modify(client, &context, &url, &url, device, modifier)?;
+    resource_modify(client, &context, &url, &url, device, modifier).await?;
 
     Ok(())
 }
 
-fn credentials_add_psk(
+async fn credentials_add_psk(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
@@ -258,7 +283,8 @@ fn credentials_add_psk(
 
     cred_add_or_insert(
         client, context, overrides, clear, TYPE_PSK, device, auth_id, new_secret,
-    )?;
+    )
+    .await?;
 
     if clear {
         println!("PSK set for {}/{}", device, auth_id);
@@ -269,7 +295,7 @@ fn credentials_add_psk(
     Ok(())
 }
 
-fn credentials_add_password(
+async fn credentials_add_password(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
@@ -290,7 +316,8 @@ fn credentials_add_password(
         device,
         auth_id,
         new_secret,
-    )?;
+    )
+    .await?;
 
     if clear {
         println!("Password set for {}/{}", device, auth_id);
@@ -301,7 +328,7 @@ fn credentials_add_password(
     Ok(())
 }
 
-fn cred_add_or_insert(
+async fn cred_add_or_insert(
     client: &Client,
     context: &Context,
     overrides: &Overrides,
@@ -342,6 +369,7 @@ fn cred_add_or_insert(
 
         Ok(())
     })
+    .await
 }
 
 fn cred_for_type_and_auth<'a, 'b, 'c>(
