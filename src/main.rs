@@ -50,6 +50,11 @@ fn app() -> App<'static, 'static> {
         .help("Name of the context")
         .number_of_values(1)
         .required(true);
+    let args_ctx_url = Arg::with_name("context-url")
+        .help("URL of the registry")
+        .number_of_values(1)
+        .overrides_with("url")
+        .required(true);
     let args_ctx_username = Arg::with_name("username")
         .help("Username for accessing the device registry")
         .long("username")
@@ -119,7 +124,9 @@ fn app() -> App<'static, 'static> {
     let args_credentials_password = Arg::with_name("password")
         .required(true)
         .help("The plaintext password");
-    let args_credentials_psk = Arg::with_name("psk").required(true).help("The PSK value");
+    let args_credentials_psk = Arg::with_name("psk")
+        .required(true)
+        .help("The PSK value, base64 encoded");
 
     // overrides
 
@@ -190,6 +197,7 @@ fn app() -> App<'static, 'static> {
                     SubCommand::with_name("create")
                         .about("Create a new context")
                         .arg(args_ctx.clone())
+                        .arg(args_ctx_url.clone())
                         .arg(args_ctx_username.clone())
                         .arg(args_ctx_password.clone())
                         .arg(args_ctx_token.clone()),
@@ -415,7 +423,11 @@ async fn run() -> Result<(), failure::Error> {
 }
 
 fn hat_exit(err: failure::Error) -> ! {
-    for cause in Fail::iter_chain(err.as_fail()) {
+    for cause in Fail::iter_chain(err.as_fail())
+        .collect::<Vec<_>>()
+        .iter()
+        .rev()
+    {
         println!("{}: {}", cause.name().unwrap_or("Error"), cause);
     }
 

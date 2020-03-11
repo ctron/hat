@@ -129,7 +129,10 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
     match matches.subcommand() {
         ("create", Some(cmd_matches)) => context_create(
             cmd_matches.value_of("context-name").unwrap(),
-            cmd_matches.value_of("url").unwrap(),
+            cmd_matches
+                .value_of("context-url")
+                .or_else(|| cmd_matches.value_of("url"))
+                .unwrap(),
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
             cmd_matches.value_of("token"),
@@ -154,7 +157,11 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
             context_delete(cmd_matches.value_of("context-name").unwrap())
         }
         ("list", Some(_)) => context_list(),
-        ("show", Some(cmd_matches)) => context_show(cmd_matches.value_of("context-name")),
+        ("show", Some(cmd_matches)) => context_show(
+            cmd_matches
+                .value_of("context-name")
+                .or_else(|| cmd_matches.value_of("context")),
+        ),
         ("current", Some(_)) => context_current(),
         _ => help(app),
     }
@@ -329,7 +336,7 @@ fn context_create(
 
     context_store(context, ctx)?;
 
-    println!("Created new context: {}", context);
+    println!("Created new context: {} for {}", context, url);
     context_switch(context)?;
 
     Ok(())

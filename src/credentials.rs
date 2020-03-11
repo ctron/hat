@@ -37,6 +37,7 @@ use serde_json::value::{Map, Value};
 
 use crate::client::Client;
 use crate::overrides::Overrides;
+use failure::Fail;
 use futures::executor::block_on;
 
 type Result<T> = std::result::Result<T, error::Error>;
@@ -411,8 +412,14 @@ fn new_password_secret(plain_password: &str, hash_function: &HashFunction) -> Re
 }
 
 /// Create a new secrets entry, based on `psk`
-fn new_psk_secret<S: Into<Value>>(psk: S) -> Result<Value> {
+fn new_psk_secret<S: Into<String>>(psk: S) -> Result<Value> {
     let mut new_pair = Map::new();
+
+    // validate it is base64 encoded
+
+    let psk = psk.into();
+    base64::decode(psk.as_bytes())
+        .map_err(|err| err.context(GenericError("Key must be base64 encoded".into())))?;
 
     // put to result
 
