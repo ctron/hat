@@ -16,6 +16,7 @@ use clap::{App, ArgMatches};
 use crate::context::Context;
 use crate::help::help;
 
+use serde_json::value::Value::Object;
 use serde_json::value::{Map, Value};
 
 use http::header::CONTENT_TYPE;
@@ -41,6 +42,7 @@ const RESOURCE_NAME: &str = "devices";
 const RESOURCE_LABEL: &str = "Device";
 const PROP_ENABLED: &str = "enabled";
 const PROP_VIA: &str = "via";
+const PROP_DEFAULTS: &str = "defaults";
 
 pub async fn registration(
     app: &mut App<'_, '_>,
@@ -100,6 +102,17 @@ pub async fn registration(
                 overrides,
                 cmd_matches.value_of("device").unwrap(),
                 cmd_matches.values_of("via"),
+            )
+            .await?
+        }
+        ("set-default", Some(cmd_matches)) => {
+            registration_set_default(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("defaults-name").unwrap(),
+                cmd_matches.value_of("defaults-value"),
             )
             .await?
         }
@@ -260,6 +273,68 @@ where
         RESOURCE_NAME,
         &[&context.make_tenant(overrides)?, &device.into()],
     )
+}
+
+async fn registration_set_default(
+    client: &Client,
+    context: &Context,
+    overrides: &Overrides,
+    device: &str,
+    name: &str,
+    payload: Option<&str>,
+) -> Result<()> {
+    let payload: Option<Value> = match payload {
+        Some(p) => Some(serde_json::from_str(p).unwrap_or_else(|_| Value::String(p.into()))),
+        _ => None,
+    };
+
+    let url = registration_url(context, overrides, device)?;
+
+    resource_modify(
+        client,
+        &context,
+        &url,
+        &url,
+        RESOURCE_LABEL,
+        |reg: &mut Map<String, Value>| {
+            match &payload {
+                None => match reg.get_mut(PROP_DEFAULTS.into()) {
+                    Some(Object(ref mut defaults)) => {
+                        // remove from defaults map
+                        defaults.remove(name);
+                    }
+                    _ => {}
+                },
+                Some(payload) => match reg.get_mut(PROP_DEFAULTS.into()) {
+                    Some(Object(ref mut defaults)) => {
+                        // add to defaults map
+                        defaults.insert(name.into(), payload.clone());
+                    }
+                    _ => {
+                        // defaults is either not present, or not an object
+                        let mut defaults = Map::new();
+                        defaults.insert(name.into(), payload.clone());
+                        reg.insert(PROP_DEFAULTS.into(), Object(defaults));
+                    }
+                },
+            };
+
+            Ok(())
+        },
+    )
+    .await?;
+
+    match payload {
+        None => println!("Cleared default value {} for device {}", name, device),
+        Some(ref v) => {
+            println!(
+                "Set default value {} for device {} to {:#?}",
+                name, device, v
+            );
+        }
+    }
+
+    Ok(())
 }
 
 async fn registration_via(

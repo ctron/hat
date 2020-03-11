@@ -90,6 +90,15 @@ fn app() -> App<'static, 'static> {
         .multiple(true)
         .takes_value(true)
         .required(false);
+    let args_device_defaults_key = Arg::with_name("defaults-name")
+        .help("Name of the defaults entry")
+        .number_of_values(1)
+        .required(true);
+    let args_device_json_value = Arg::with_name("defaults-value")
+        .help("Value for the defaults entry")
+        .min_values(0)
+        .max_values(1)
+        .required(false);
 
     // credentials
 
@@ -276,6 +285,14 @@ fn app() -> App<'static, 'static> {
                         .about("Set the gateway configuration")
                         .arg(args_device.clone())
                         .arg(args_device_via.clone()),
+                )
+                .subcommand(
+                    SubCommand::with_name("set-default")
+                        .alias("set-defaults")
+                        .about("Set or remove defaults entry")
+                        .arg(args_device.clone())
+                        .arg(args_device_defaults_key.clone())
+                        .arg(args_device_json_value.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("delete")
