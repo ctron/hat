@@ -42,13 +42,11 @@ impl Overrides {
 impl<'a> From<&'a clap::ArgMatches<'a>> for Overrides {
     fn from(matches: &'a clap::ArgMatches) -> Self {
         Overrides {
-            context: matches
-                .value_of("context-override")
-                .map(ToString::to_string),
-            url: matches.value_of("url-override").map(ToString::to_string),
-            tenant: matches.value_of("tenant-override").map(ToString::to_string),
-            use_kubernetes: flag_arg("kubernetes-override", matches),
-            insecure: flag_arg("insecure-override", matches),
+            context: matches.value_of("context").map(ToString::to_string),
+            url: matches.value_of("url").map(ToString::to_string),
+            tenant: matches.value_of("tenant").map(ToString::to_string),
+            use_kubernetes: flag_arg("use-kubernetes", matches),
+            insecure: flag_arg("insecure", matches),
         }
     }
 }

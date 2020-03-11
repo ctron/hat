@@ -13,6 +13,7 @@
 
 use clap::crate_version;
 use clap::{App, AppSettings, Arg, SubCommand};
+use failure::Fail;
 use overrides::Overrides;
 use simplelog::{Config, LevelFilter, TermLogger};
 use std::result::Result;
@@ -45,12 +46,8 @@ fn app() -> App<'static, 'static> {
 
     // context
 
-    let args_ctx = Arg::with_name("context")
+    let args_ctx = Arg::with_name("context-name")
         .help("Name of the context")
-        .number_of_values(1)
-        .required(true);
-    let args_ctx_url = Arg::with_name("url")
-        .help("URL to the server")
         .number_of_values(1)
         .required(true);
     let args_ctx_username = Arg::with_name("username")
@@ -67,22 +64,6 @@ fn app() -> App<'static, 'static> {
         .help("Bearer token for accessing the device registry")
         .long("token")
         .number_of_values(1);
-    let args_ctx_kubernetes = Arg::with_name("kubernetes")
-        .help("Use local Kubernetes token for accessing the device registry")
-        .long("kubernetes")
-        .possible_values(&["true", "false"])
-        .min_values(0)
-        .max_values(1);
-    let args_ctx_default_tenant = Arg::with_name("default-tenant")
-        .help("Set the default tenant")
-        .long("default-tenant")
-        .number_of_values(1);
-    let args_ctx_insecure = Arg::with_name("insecure")
-        .help("Ignore TLS certificate and hostname (INSECURE!)")
-        .long("insecure")
-        .possible_values(&["true", "false"])
-        .min_values(0)
-        .max_values(1);
 
     // tenant
 
@@ -133,33 +114,32 @@ fn app() -> App<'static, 'static> {
 
     // overrides
 
-    let args_override_url = Arg::with_name("url-override")
-        .help("Override the URL")
+    let args_override_url = Arg::with_name("url")
+        .help("Set the URL to use")
         .global(true)
         .short("U")
         .long("url")
-        .group("overrides")
         .env("HAT_URL")
         .number_of_values(1);
 
-    let args_override_tenant = Arg::with_name("tenant-override")
-        .help("Override the default tenant")
+    let args_override_tenant = Arg::with_name("tenant")
+        .help("Set the tenant to use")
         .global(true)
         .short("t")
         .long("tenant")
         .env("HAT_TENANT")
         .number_of_values(1);
 
-    let args_override_context = Arg::with_name("context-override")
-        .help("Override the default context")
+    let args_override_context = Arg::with_name("context")
+        .help("The context to use")
         .global(true)
         .short("c")
         .long("context")
         .env("HAT_CONTEXT")
         .number_of_values(1);
 
-    let args_override_kubernetes = Arg::with_name("kubernetes-override")
-        .help("Override the use of Kubernetes credentials")
+    let args_override_kubernetes = Arg::with_name("use-kubernetes")
+        .help("Whether to use the Kubernetes credentials")
         .global(true)
         .long("use-kubernetes")
         .short("k")
@@ -167,7 +147,7 @@ fn app() -> App<'static, 'static> {
         .min_values(0)
         .max_values(1);
 
-    let args_override_insecure = Arg::with_name("insecure-override")
+    let args_override_insecure = Arg::with_name("insecure")
         .help("Ignore TLS certificate and hostname (INSECURE!)")
         .global(true)
         .long("insecure")
@@ -192,6 +172,7 @@ fn app() -> App<'static, 'static> {
         .about("Work with an Eclipse Hono instance")
         .global_setting(AppSettings::VersionlessSubcommands)
         .arg(args_global_verbose)
+        .args(&args_overrides)
         .subcommand(
             SubCommand::with_name("context")
                 .about("Work with contexts")
@@ -200,25 +181,17 @@ fn app() -> App<'static, 'static> {
                     SubCommand::with_name("create")
                         .about("Create a new context")
                         .arg(args_ctx.clone())
-                        .arg(args_ctx_url.clone())
                         .arg(args_ctx_username.clone())
                         .arg(args_ctx_password.clone())
-                        .arg(args_ctx_token.clone())
-                        .arg(args_ctx_kubernetes.clone())
-                        .arg(args_ctx_insecure.clone())
-                        .arg(args_ctx_default_tenant.clone()),
+                        .arg(args_ctx_token.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("update")
                         .about("Update an existing context")
                         .arg(args_ctx.clone().required(false))
-                        .arg(args_ctx_url.clone().required(false))
                         .arg(args_ctx_username.clone())
                         .arg(args_ctx_password.clone())
-                        .arg(args_ctx_token.clone())
-                        .arg(args_ctx_kubernetes.clone())
-                        .arg(args_ctx_insecure.clone())
-                        .arg(args_ctx_default_tenant.clone()),
+                        .arg(args_ctx_token.clone()),
                 )
                 .subcommand(
                     SubCommand::with_name("delete")
@@ -244,7 +217,6 @@ fn app() -> App<'static, 'static> {
             SubCommand::with_name("tenant")
                 .about("Work with tenants")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
-                .args(&args_overrides)
                 .subcommand(
                     SubCommand::with_name("create")
                         .about("Create a new tenant")
@@ -281,7 +253,6 @@ fn app() -> App<'static, 'static> {
         .subcommand(
             SubCommand::with_name("device")
                 .about("Work with devices")
-                .args(&args_overrides)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("create")
@@ -326,7 +297,6 @@ fn app() -> App<'static, 'static> {
             SubCommand::with_name("cred")
                 .aliases(&["creds", "auth", "credentials"])
                 .about("Work with device credentials")
-                .args(&args_overrides)
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("set")
@@ -427,25 +397,21 @@ async fn run() -> Result<(), failure::Error> {
     Ok(())
 }
 
+fn hat_exit(err: failure::Error) -> ! {
+    for cause in Fail::iter_chain(err.as_fail()) {
+        println!("{}: {}", cause.name().unwrap_or("Error"), cause);
+    }
+
+    std::process::exit(1)
+}
+
 #[tokio::main(core_threads = 1)]
 async fn main() {
     #[cfg(windows)]
     let _enabled = colored_json::enable_ansi_support();
 
-    let rc = run().await;
-
-    if let Err(err) = rc {
-        eprintln!("{}", err);
-
-        if let Some(cause) = err.as_fail().cause() {
-            eprintln!("{}", cause);
-        }
-
-        let backtrace = err.backtrace().to_string();
-        if !backtrace.trim().is_empty() {
-            eprintln!("{}", backtrace);
-        }
-
-        std::process::exit(1);
+    match run().await {
+        Err(e) => hat_exit(e),
+        Ok(()) => {}
     }
 }

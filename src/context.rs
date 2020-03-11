@@ -128,31 +128,33 @@ impl Context {
 pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> {
     match matches.subcommand() {
         ("create", Some(cmd_matches)) => context_create(
-            cmd_matches.value_of("context").unwrap(),
+            cmd_matches.value_of("context-name").unwrap(),
             cmd_matches.value_of("url").unwrap(),
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
             cmd_matches.value_of("token"),
-            flag_arg("kubernetes", cmd_matches).unwrap_or(false),
+            flag_arg("use-kubernetes", cmd_matches).unwrap_or(false),
             flag_arg("insecure", cmd_matches).unwrap_or(false),
-            cmd_matches.value_of("default-tenant"),
+            cmd_matches.value_of("tenant"),
         ),
         ("update", Some(cmd_matches)) => context_update(
-            cmd_matches
-                .value_of("context")
-                .or(cmd_matches.value_of("context-override")),
+            cmd_matches.value_of("context-name"),
             cmd_matches.value_of("url"),
             cmd_matches.value_of("username"),
             cmd_matches.value_of("password"),
             cmd_matches.value_of("token"),
-            flag_arg("kubernetes", cmd_matches),
+            flag_arg("use-kubernetes", cmd_matches),
             flag_arg("insecure", cmd_matches),
-            cmd_matches.value_of("default-tenant"),
+            cmd_matches.value_of("tenant"),
         ),
-        ("switch", Some(cmd_matches)) => context_switch(cmd_matches.value_of("context").unwrap()),
-        ("delete", Some(cmd_matches)) => context_delete(cmd_matches.value_of("context").unwrap()),
+        ("switch", Some(cmd_matches)) => {
+            context_switch(cmd_matches.value_of("context-name").unwrap())
+        }
+        ("delete", Some(cmd_matches)) => {
+            context_delete(cmd_matches.value_of("context-name").unwrap())
+        }
         ("list", Some(_)) => context_list(),
-        ("show", Some(cmd_matches)) => context_show(cmd_matches.value_of("context")),
+        ("show", Some(cmd_matches)) => context_show(cmd_matches.value_of("context-name")),
         ("current", Some(_)) => context_current(),
         _ => help(app),
     }
