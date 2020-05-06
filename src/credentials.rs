@@ -45,6 +45,7 @@ type Result<T> = std::result::Result<T, error::Error>;
 static RESOURCE_NAME: &str = "credentials";
 static TYPE_HASHED_PASSWORD: &str = "hashed-password";
 static TYPE_PSK: &str = "psk";
+static TYPE_X509: &str = "x509-cert";
 
 pub async fn credentials(
     app: &mut App<'_, '_>,
@@ -114,6 +115,28 @@ pub async fn credentials(
                 cmd_matches.value_of("auth-id").unwrap(),
                 cmd_matches.value_of("psk").unwrap(),
                 true,
+            )
+            .await?
+        }
+        ("enable-x509", Some(cmd_matches)) => {
+            credentials_enable_x509(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("auth-id").unwrap(),
+                true,
+            )
+            .await?
+        }
+        ("disable-x509", Some(cmd_matches)) => {
+            credentials_enable_x509(
+                &client,
+                context,
+                overrides,
+                cmd_matches.value_of("device").unwrap(),
+                cmd_matches.value_of("auth-id").unwrap(),
+                false,
             )
             .await?
         }
@@ -283,7 +306,14 @@ async fn credentials_add_psk(
     let new_secret = new_psk_secret(psk)?;
 
     cred_add_or_insert(
-        client, context, overrides, clear, TYPE_PSK, device, auth_id, new_secret,
+        client,
+        context,
+        overrides,
+        clear,
+        TYPE_PSK,
+        device,
+        auth_id,
+        Some(new_secret),
     )
     .await?;
 
@@ -316,7 +346,7 @@ async fn credentials_add_password(
         TYPE_HASHED_PASSWORD,
         device,
         auth_id,
-        new_secret,
+        Some(new_secret),
     )
     .await?;
 
@@ -324,6 +354,33 @@ async fn credentials_add_password(
         println!("Password set for {}/{}", device, auth_id);
     } else {
         println!("Password added to {}/{}", device, auth_id);
+    }
+
+    Ok(())
+}
+
+async fn credentials_enable_x509(
+    client: &Client,
+    context: &Context,
+    overrides: &Overrides,
+    device: &str,
+    auth_id: &str,
+    enable: bool,
+) -> Result<()> {
+    let new_secret = match enable {
+        true => Some(new_x509()),
+        false => None,
+    };
+
+    cred_add_or_insert(
+        client, context, overrides, true, TYPE_X509, device, auth_id, new_secret,
+    )
+    .await?;
+
+    if enable {
+        println!("X509 enabled for {}/{}", device, auth_id);
+    } else {
+        println!("X509 disabled for {}/{}", device, auth_id);
     }
 
     Ok(())
@@ -337,7 +394,7 @@ async fn cred_add_or_insert(
     type_name: &str,
     device: &str,
     auth_id: &str,
-    new_secret: Value,
+    new_secret: Option<Value>,
 ) -> Result<()> {
     credentials_modify(client, &context, overrides, device, |payload| {
         let cred = payload
@@ -360,10 +417,12 @@ async fn cred_add_or_insert(
             cred.remove("secrets");
         }
 
-        if let Some(Value::Array(s)) = cred.get_mut("secrets") {
-            s.push(new_secret);
-        } else {
-            cred.insert("secrets".into(), vec![new_secret].into());
+        if let Some(secret) = new_secret {
+            if let Some(Value::Array(s)) = cred.get_mut("secrets") {
+                s.push(secret);
+            } else {
+                cred.insert("secrets".into(), vec![secret].into());
+            }
         }
 
         // return success
@@ -428,4 +487,8 @@ fn new_psk_secret<S: Into<String>>(psk: S) -> Result<Value> {
     // return as value
 
     Ok(Value::Object(new_pair))
+}
+
+fn new_x509() -> Value {
+    Value::Object(Map::new())
 }

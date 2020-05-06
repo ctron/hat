@@ -366,6 +366,18 @@ fn app() -> App<'static, 'static> {
                         .arg(args_credentials_psk.clone()),
                 )
                 .subcommand(
+                    SubCommand::with_name("enable-x509")
+                        .about("Enable device for X509")
+                        .arg(args_device.clone())
+                        .arg(args_credentials_auth_id.clone()),
+                )
+                .subcommand(
+                    SubCommand::with_name("disable-x509")
+                        .about("Disable device for X509")
+                        .arg(args_device.clone())
+                        .arg(args_credentials_auth_id.clone()),
+                )
+                .subcommand(
                     SubCommand::with_name("delete")
                         .about("Delete a credential set from a device")
                         .arg(args_device.clone())
