@@ -161,3 +161,7 @@ Set password with pre-hashed password:
 Set PSK:
 
     hat creds set-psk device1 sensor1 PSK
+
+Enable X509:
+
+    hat creds enable-x509 device1 sensor1
