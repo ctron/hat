@@ -37,6 +37,7 @@ use crate::resource::Tracer;
 use crate::utils::Either;
 use ansi_term::Style;
 use colored_json::*;
+use kube::config::ConfigOptions;
 use percent_encoding::{percent_decode, utf8_percent_encode, NON_ALPHANUMERIC};
 use serde;
 use serde::{Deserialize, Serialize};
@@ -49,6 +50,8 @@ pub struct Context {
     token: Option<String>,
     #[serde(default)]
     use_kubernetes: bool,
+    kubernetes_context: Option<String>,
+    kubernetes_cluster: Option<String>,
     #[serde(default)]
     insecure: bool,
     default_tenant: Option<String>,
@@ -74,6 +77,14 @@ impl Context {
 
     pub fn use_kubernetes(&self) -> bool {
         self.use_kubernetes
+    }
+
+    pub fn kubernetes_cluster(&self) -> Option<&String> {
+        return self.kubernetes_cluster.as_ref();
+    }
+
+    pub fn kubernetes_context(&self) -> Option<&String> {
+        return self.kubernetes_context.as_ref();
     }
 
     #[allow(dead_code)]
@@ -112,7 +123,14 @@ impl Context {
         overrides: &Overrides,
     ) -> Result<reqwest::Client, error::Error> {
         let builder = if overrides.use_kubernetes().unwrap_or(self.use_kubernetes) {
-            let result = kube::config::create_client_builder(Default::default()).await?;
+            let cluster = overrides.kubernetes_cluster().or(self.kubernetes_cluster());
+            let context = overrides.kubernetes_context().or(self.kubernetes_context());
+            let options = ConfigOptions {
+                context: context.cloned(),
+                cluster: cluster.cloned(),
+                ..Default::default()
+            };
+            let result = kube::config::create_client_builder(options).await?;
             result.0
         } else {
             reqwest::Client::builder()
@@ -137,6 +155,8 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
             cmd_matches.value_of("password"),
             cmd_matches.value_of("token"),
             flag_arg("use-kubernetes", cmd_matches).unwrap_or(false),
+            cmd_matches.value_of("kubernetes-cluster"),
+            cmd_matches.value_of("kubernetes-context"),
             flag_arg("insecure", cmd_matches).unwrap_or(false),
             cmd_matches.value_of("tenant"),
         ),
@@ -147,6 +167,8 @@ pub fn context(app: &mut App, matches: &ArgMatches) -> Result<(), error::Error> 
             cmd_matches.value_of("password"),
             cmd_matches.value_of("token"),
             flag_arg("use-kubernetes", cmd_matches),
+            cmd_matches.value_of("kubernetes-cluster"),
+            cmd_matches.value_of("kubernetes-context"),
             flag_arg("insecure", cmd_matches),
             cmd_matches.value_of("tenant"),
         ),
@@ -315,6 +337,8 @@ fn context_create(
     password: Option<&str>,
     token: Option<&str>,
     use_kubernetes: bool,
+    kubernetes_cluster: Option<&str>,
+    kubernetes_context: Option<&str>,
     insecure: bool,
     default_tenant: Option<&str>,
 ) -> Result<(), error::Error> {
@@ -330,6 +354,9 @@ fn context_create(
         password: password.map(Into::into),
         token: token.map(Into::into),
         use_kubernetes,
+        kubernetes_context: kubernetes_context.map(Into::into),
+        kubernetes_cluster: kubernetes_cluster.map(Into::into),
+
         insecure,
         default_tenant: default_tenant.map(Into::into),
     };
@@ -349,6 +376,8 @@ fn context_update(
     password: Option<&str>,
     token: Option<&str>,
     use_kubernetes: Option<bool>,
+    kubernetes_cluster: Option<&str>,
+    kubernetes_context: Option<&str>,
     insecure: Option<bool>,
     default_tenant: Option<&str>,
 ) -> Result<(), error::Error> {
@@ -431,6 +460,26 @@ fn context_update(
         println!("\tSetting default tenant to: {}", t);
     }
 
+    if let Some(p) = kubernetes_cluster {
+        if p.is_empty() {
+            ctx.kubernetes_cluster = None;
+        } else {
+            ctx.kubernetes_cluster = Some(p.into());
+        }
+
+        println!("\tSetting Kubernetes cluster to: {}", p);
+    }
+
+    if let Some(p) = kubernetes_context {
+        if p.is_empty() {
+            ctx.kubernetes_context = None;
+        } else {
+            ctx.kubernetes_context = Some(p.into());
+        }
+
+        println!("\tSetting Kubernetes context to: {}", p);
+    }
+
     context_store(&context, ctx)?;
 
     Ok(())
@@ -471,28 +520,40 @@ fn context_show(context: Option<&str>) -> Result<(), error::Error> {
 
     let ctx = context_load(&context)?;
 
-    println!("Current context: {}", context);
-    println!("            URL: {}", ctx.url);
+    println!("   Current context: {}", context);
+    println!("               URL: {}", ctx.url);
 
     println!(
-        "       Username: {}",
+        "          Username: {}",
         ctx.username.unwrap_or_else(|| String::from("<none>"))
     );
     println!(
-        "       Password: {}",
+        "          Password: {}",
         ctx.password.and(Some("***")).unwrap_or("<none>")
     );
     println!(
-        "          Token: {}",
+        "             Token: {}",
         ctx.token.unwrap_or_else(|| String::from("<none>"))
     );
     println!(
-        " Use Kubernetes: {}",
+        "    Use Kubernetes: {}",
         ctx.use_kubernetes.either("yes", "no")
     );
-    println!("   Insecure TLS: {}", ctx.insecure.either("yes", "no"));
+    if ctx.use_kubernetes {
+        println!(
+            "Kubernetes cluster: {}",
+            ctx.kubernetes_cluster
+                .unwrap_or_else(|| String::from("<none>"))
+        );
+        println!(
+            "Kubernetes context: {}",
+            ctx.kubernetes_context
+                .unwrap_or_else(|| String::from("<none>"))
+        );
+    }
+    println!("      Insecure TLS: {}", ctx.insecure.either("yes", "no"));
     println!(
-        " Default tenant: {}",
+        "    Default tenant: {}",
         ctx.default_tenant.unwrap_or_else(|| String::from("<none>"))
     );
 

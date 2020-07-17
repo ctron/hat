@@ -18,6 +18,8 @@ pub struct Overrides {
     url: Option<String>,
     tenant: Option<String>,
     use_kubernetes: Option<bool>,
+    kubernetes_context: Option<String>,
+    kubernetes_cluster: Option<String>,
     insecure: Option<bool>,
 }
 
@@ -34,6 +36,12 @@ impl Overrides {
     pub fn use_kubernetes(&self) -> Option<bool> {
         self.use_kubernetes
     }
+    pub fn kubernetes_cluster(&self) -> Option<&String> {
+        self.kubernetes_cluster.as_ref()
+    }
+    pub fn kubernetes_context(&self) -> Option<&String> {
+        self.kubernetes_context.as_ref()
+    }
     pub fn insecure(&self) -> Option<bool> {
         self.insecure
     }
@@ -46,6 +54,12 @@ impl<'a> From<&'a clap::ArgMatches<'a>> for Overrides {
             url: matches.value_of("url").map(ToString::to_string),
             tenant: matches.value_of("tenant").map(ToString::to_string),
             use_kubernetes: flag_arg("use-kubernetes", matches),
+            kubernetes_cluster: matches
+                .value_of("kubernetes-cluster")
+                .map(ToString::to_string),
+            kubernetes_context: matches
+                .value_of("kubernetes-context")
+                .map(ToString::to_string),
             insecure: flag_arg("insecure", matches),
         }
     }

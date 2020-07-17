@@ -1,6 +1,6 @@
 [package]
 name = "hat"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["Jens Reimann <jreimann@redhat.com>"]
 edition = "2018"
 

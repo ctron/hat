@@ -171,12 +171,28 @@ fn app() -> App<'static, 'static> {
         .min_values(0)
         .max_values(1);
 
+    let args_override_kubernetes_cluster = Arg::with_name("kubernetes-cluster")
+        .global(true)
+        .help("Kubernetes cluster to select from local configuration")
+        .long("kubernetes-cluster")
+        .min_values(0)
+        .max_values(1);
+
+    let args_override_kubernetes_context = Arg::with_name("kubernetes-context")
+        .global(true)
+        .help("Kubernetes context to select from local configuration")
+        .long("kubernetes-context")
+        .min_values(0)
+        .max_values(1);
+
     let args_overrides = [
         args_override_context,
         args_override_kubernetes,
         args_override_tenant,
         args_override_url,
         args_override_insecure,
+        args_override_kubernetes_cluster,
+        args_override_kubernetes_context,
     ];
 
     // main app
